@@ -94,3 +94,64 @@ export interface IAuthTokenPayload {
   id: string;
   role: UserRole;
 }
+
+// 11. Pickup Request Statuses (State Machine)
+export type PickupStatus =
+  | 'pending'
+  | 'offered'
+  | 'accepted'
+  | 'on_the_way'
+  | 'arrived'
+  | 'weighed'
+  | 'confirmed'
+  | 'paid'
+  | 'completed'
+  | 'cancelled'
+  | 'expired';
+
+export type PricingMode = 'separate' | 'mixed' | 'hybrid';
+export type PricingPreference = 'quick_mixed' | 'best_price_separate' | 'none';
+export type SeparateRequestStatus = 'pending' | 'accepted' | 'declined';
+
+// 12. Pickup Request Interface
+export interface IPickupRequest extends Document {
+  _id: Types.ObjectId;
+  customerId: Types.ObjectId;
+  collectorId?: Types.ObjectId | null;
+  zoneId: Types.ObjectId;
+  address: string;
+  location: IGeoPoint;
+  photos: string[];
+  preferredTime?: string;
+  status: PickupStatus;
+  offeredTo: Types.ObjectId[];
+  currentOfferCollectorId?: Types.ObjectId | null;
+  offerExpiresAt?: Date | null;
+  customerPricingPreference: PricingPreference;
+  pricingMode: PricingMode;
+  separateRequest: {
+    requested: boolean;
+    requestedAt?: Date;
+    status?: SeparateRequestStatus | null;
+    declineReason?: string;
+  };
+  totalPickupWeightKg: number;
+  totalAmountPaise: number;
+  customerConfirmed: boolean;
+  otpVerifiedAt?: Date;
+  scalePhotos: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 13. Pickup Item Interface (Weighed scrap items with rate snapshot)
+export interface IPickupItem extends Document {
+  _id: Types.ObjectId;
+  requestId: Types.ObjectId;
+  category: ScrapCategory;
+  weightKg: number;
+  ratePerKgPaise: number;
+  amountPaise: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
