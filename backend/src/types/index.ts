@@ -40,7 +40,45 @@ export interface IUser extends Document {
   updatedAt: Date;
 }
 
-// 6. Otp Document Interface
+// 6. Scrap Categories
+export type ScrapCategory =
+  | 'iron'
+  | 'plastic'
+  | 'copper_wire'
+  | 'paper'
+  | 'ewaste'
+  | 'battery'
+  | 'other'
+  | 'mixed';
+
+// 7. Zone Interface (GeoJSON Polygon)
+export interface IZonePolygon {
+  type: 'Polygon';
+  coordinates: number[][][]; // Array of linear rings: [[[lng, lat], [lng, lat], ...]]
+}
+
+export interface IZone extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  polygon: IZonePolygon;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 8. RateCard Interface (Stored in integer Paise per Kg: 1 INR = 100 Paise)
+export interface IRateCard extends Document {
+  _id: Types.ObjectId;
+  category: ScrapCategory;
+  ratePerKgPaise: number;
+  zoneId?: Types.ObjectId | null;
+  updatedBy: Types.ObjectId;
+  effectiveFrom: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 9. Otp Document Interface
 export interface IOtp extends Document {
   _id: Types.ObjectId;
   phone: string;
@@ -51,7 +89,7 @@ export interface IOtp extends Document {
   updatedAt: Date;
 }
 
-// 7. JWT Payload
+// 10. JWT Payload
 export interface IAuthTokenPayload {
   id: string;
   role: UserRole;

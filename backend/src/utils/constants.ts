@@ -9,7 +9,21 @@ export const ROLES: Record<string, UserRole> = {
   ADMIN: 'admin',
 };
 
-export const LANGUAGES: Language[] = ['en', 'ta'];
+export const SCRAP_CATEGORIES = [
+  'iron',
+  'plastic',
+  'copper_wire',
+  'paper',
+  'ewaste',
+  'battery',
+  'other',
+  'mixed',
+] as const;
+
+// Special handling materials (e-waste, batteries) require dedicated recycling units
+export const SPECIAL_HANDLING_CATEGORIES = ['ewaste', 'battery'] as const;
+
+export const NORMAL_CATEGORIES = ['iron', 'plastic', 'copper_wire', 'paper'] as const;
 
 export const OTP_CONFIG = {
   EXPIRY_MINUTES: 5,
