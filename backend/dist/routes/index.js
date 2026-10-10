@@ -8,8 +8,10 @@ const express_1 = require("express");
 const auth_routes_1 = __importDefault(require("./auth.routes"));
 const admin_routes_1 = __importDefault(require("./admin.routes"));
 const pickup_routes_1 = __importDefault(require("./pickup.routes"));
+const collector_routes_1 = __importDefault(require("./collector.routes"));
 const router = (0, express_1.Router)();
 router.use('/auth', auth_routes_1.default);
 router.use('/pickups', pickup_routes_1.default);
+router.use('/collector', collector_routes_1.default);
 router.use('/', admin_routes_1.default); // Mounts /rates, /zones, and /admin/*
 exports.default = router;

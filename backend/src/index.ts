@@ -3,6 +3,7 @@ import app from './app';
 import connectDB from './config/db';
 import env from './config/env';
 import logger from './utils/logger';
+import { startOfferTimeoutJob, stopOfferTimeoutJob } from './jobs/offerTimeout.job';
 
 process.on('unhandledRejection', (reason: any, promise: any) => {
   logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
@@ -17,7 +18,10 @@ const startServer = async (): Promise<void> => {
   // Step 1: Connect to MongoDB Atlas
   await connectDB();
 
-  // Step 2: Start Express HTTP Server
+  // Step 2: Start Background Jobs (60s offer timeout checker)
+  startOfferTimeoutJob();
+
+  // Step 3: Start Express HTTP Server
   const server = app.listen(env.port, () => {
     logger.info(`🚀 WasteWallet Server (TS) running on port ${env.port} (http://localhost:${env.port})`);
     logger.info(`🩺 Health check URL: http://localhost:${env.port}/health`);
@@ -25,6 +29,7 @@ const startServer = async (): Promise<void> => {
 
   const gracefulShutdown = () => {
     logger.info('Received shutdown signal. Closing HTTP server...');
+    stopOfferTimeoutJob();
     server.close(() => {
       logger.info('HTTP server closed. Exiting process.');
       process.exit(0);

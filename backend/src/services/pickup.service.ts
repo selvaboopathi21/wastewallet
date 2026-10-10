@@ -83,7 +83,11 @@ export const createPickupRequest = async ({
     scalePhotos: [],
   });
 
-  return pickup;
+  // 6. Automatically dispatch to best online collector in zone
+  const dispatchService = (await import('./dispatch.service')).default;
+  const dispatchedPickup = await dispatchService.dispatchPickupRequest(pickup._id);
+
+  return dispatchedPickup || pickup;
 };
 
 /**
