@@ -1,5 +1,5 @@
 // Auth Routes in TypeScript
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { sendOtp, verifyOtp, getMe } from '../controllers/auth.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
@@ -11,7 +11,7 @@ router.post('/send-otp', sendOtp);
 router.post('/verify-otp', verifyOtp);
 router.get('/me', authenticate, getMe);
 
-router.get('/admin-only', authenticate, restrictTo(ROLES.ADMIN), (req, res) => {
+router.get('/admin-only', authenticate, restrictTo(ROLES.ADMIN), (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: 'Welcome Admin! You have access to this protected admin-only resource.',

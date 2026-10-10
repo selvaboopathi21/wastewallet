@@ -10,9 +10,7 @@ const env_1 = require("./env");
 const logger_1 = require("../utils/logger");
 const connectDB = async () => {
     try {
-        const conn = await mongoose_1.default.connect(env_1.env.mongoUri, {
-            autoIndex: true,
-        });
+        const conn = await mongoose_1.default.connect(env_1.env.mongoUri);
         logger_1.logger.info(`✅ MongoDB Connected successfully to host: ${conn.connection.host}`);
     }
     catch (error) {

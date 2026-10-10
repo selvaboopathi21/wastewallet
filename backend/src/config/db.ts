@@ -5,9 +5,7 @@ import { logger } from '../utils/logger';
 
 export const connectDB = async (): Promise<void> => {
   try {
-    const conn = await mongoose.connect(env.mongoUri, {
-      autoIndex: true,
-    });
+    const conn = await mongoose.connect(env.mongoUri);
 
     logger.info(`✅ MongoDB Connected successfully to host: ${conn.connection.host}`);
   } catch (error: any) {

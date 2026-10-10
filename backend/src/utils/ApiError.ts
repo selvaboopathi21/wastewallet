@@ -9,8 +9,8 @@ export class ApiError extends Error {
     this.isOperational = isOperational;
     if (stack) {
       this.stack = stack;
-    } else {
-      Error.captureStackTrace(this, this.constructor);
+    } else if ((Error as any).captureStackTrace) {
+      (Error as any).captureStackTrace(this, this.constructor);
     }
   }
 }
