@@ -119,6 +119,76 @@ export const getActiveJobs = asyncHandler(async (req: Request, res: Response) =>
   });
 });
 
+// POST /api/v1/collector/pickups/:id/weights (Enter on-site weights)
+export const recordWeights = asyncHandler(async (req: Request, res: Response) => {
+  const collectorId = req.user!._id.toString();
+  const { id } = req.params;
+  const { mode, items, scalePhotos } = req.body;
+
+  const pricingService = (await import('../services/pricing.service')).default;
+  const result = await pricingService.recordWeighedItems({
+    pickupId: id as string,
+    collectorId,
+    mode: mode || 'separate',
+    items,
+    scalePhotoUrls: scalePhotos || [],
+  });
+
+  res.status(200).json({
+    success: true,
+    message: `Weights recorded successfully. Total: ₹${(result.pickup.totalAmountPaise / 100).toFixed(2)}`,
+    data: {
+      pickup: result.pickup,
+      items: result.items,
+    },
+  });
+});
+
+// POST /api/v1/collector/pickups/:id/request-otp (Trigger confirmation OTP to customer)
+export const requestConfirmationOtp = asyncHandler(async (req: Request, res: Response) => {
+  const collectorId = req.user!._id.toString();
+  const { id } = req.params;
+
+  const pricingService = (await import('../services/pricing.service')).default;
+  const result = await pricingService.requestCustomerConfirmationOtp(id as string, collectorId);
+
+  res.status(200).json({
+    success: true,
+    message: `6-digit confirmation OTP sent to customer (${result.phone})`,
+    data: result,
+  });
+});
+
+// POST /api/v1/collector/pickups/:id/pay-cash (Collector marks cash paid)
+export const recordCashPayment = asyncHandler(async (req: Request, res: Response) => {
+  const collectorId = req.user!._id.toString();
+  const { id } = req.params;
+
+  const paymentService = (await import('../services/payment.service')).default;
+  const result = await paymentService.processCashPayment(id as string, collectorId);
+
+  res.status(200).json({
+    success: true,
+    message: `Cash payment of ₹${(result.pickup.totalAmountPaise / 100).toFixed(2)} recorded successfully`,
+    data: result,
+  });
+});
+
+// POST /api/v1/collector/pickups/:id/complete (Collector finalizes completed pickup)
+export const finishPickup = asyncHandler(async (req: Request, res: Response) => {
+  const collectorId = req.user!._id.toString();
+  const { id } = req.params;
+
+  const paymentService = (await import('../services/payment.service')).default;
+  const completedPickup = await paymentService.completePickup(id as string, collectorId);
+
+  res.status(200).json({
+    success: true,
+    message: 'Pickup marked completed successfully!',
+    data: { pickup: completedPickup },
+  });
+});
+
 export default {
   toggleOnlineStatus,
   getMyOffers,
@@ -126,4 +196,8 @@ export default {
   declinePickupOffer,
   updatePickupStatus,
   getActiveJobs,
+  recordWeights,
+  requestConfirmationOtp,
+  recordCashPayment,
+  finishPickup,
 };

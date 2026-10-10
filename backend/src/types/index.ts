@@ -155,3 +155,19 @@ export interface IPickupItem extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// 14. Payment Types and Interface
+export type PaymentMethod = 'cash' | 'upi' | 'wallet';
+export type PaymentStatus = 'pending' | 'completed' | 'failed';
+
+export interface IPayment extends Document {
+  _id: Types.ObjectId;
+  requestId: Types.ObjectId;
+  method: PaymentMethod;
+  amountPaise: number;
+  status: PaymentStatus;
+  idempotencyKey: string;
+  paidAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}

@@ -61,8 +61,33 @@ export const getMyPickups = asyncHandler(async (req: Request, res: Response) => 
   });
 });
 
+// POST /api/v1/pickups/:id/confirm-otp (Customer inputs OTP to lock weight & amount)
+export const confirmPickupOtp = asyncHandler(async (req: Request, res: Response) => {
+  const customerId = req.user!._id.toString();
+  const { id } = req.params;
+  const { otp } = req.body;
+
+  if (!otp) {
+    throw new ApiError(400, '6-digit OTP code is required');
+  }
+
+  const pricingService = (await import('../services/pricing.service')).default;
+  const confirmedPickup = await pricingService.confirmPickupWithOtp(
+    id as string,
+    customerId,
+    otp
+  );
+
+  res.status(200).json({
+    success: true,
+    message: `Pickup confirmed successfully! Amount locked at ₹${(confirmedPickup.totalAmountPaise / 100).toFixed(2)}.`,
+    data: { pickup: confirmedPickup },
+  });
+});
+
 export default {
   createPickup,
   getPickup,
   getMyPickups,
+  confirmPickupOtp,
 };

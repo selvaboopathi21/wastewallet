@@ -44,6 +44,9 @@ export const PICKUP_STATUSES = [
 export const PRICING_MODES = ['separate', 'mixed', 'hybrid'] as const;
 export const PRICING_PREFERENCES = ['quick_mixed', 'best_price_separate', 'none'] as const;
 
+export const PAYMENT_METHODS = ['cash', 'upi', 'wallet'] as const;
+export const PAYMENT_STATUSES = ['pending', 'completed', 'failed'] as const;
+
 // Valid Status Transitions (Sequential order with no skipping allowed)
 export const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
   pending: ['offered', 'cancelled', 'expired'],

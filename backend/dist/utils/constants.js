@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.OTP_CONFIG = exports.isValidStatusTransition = exports.VALID_STATUS_TRANSITIONS = exports.PRICING_PREFERENCES = exports.PRICING_MODES = exports.PICKUP_STATUSES = exports.NORMAL_CATEGORIES = exports.SPECIAL_HANDLING_CATEGORIES = exports.SCRAP_CATEGORIES = exports.LANGUAGES = exports.ROLES = void 0;
+exports.OTP_CONFIG = exports.isValidStatusTransition = exports.VALID_STATUS_TRANSITIONS = exports.PAYMENT_STATUSES = exports.PAYMENT_METHODS = exports.PRICING_PREFERENCES = exports.PRICING_MODES = exports.PICKUP_STATUSES = exports.NORMAL_CATEGORIES = exports.SPECIAL_HANDLING_CATEGORIES = exports.SCRAP_CATEGORIES = exports.LANGUAGES = exports.ROLES = void 0;
 exports.ROLES = {
     CUSTOMER: 'customer',
     COLLECTOR: 'collector',
@@ -37,6 +37,8 @@ exports.PICKUP_STATUSES = [
 ];
 exports.PRICING_MODES = ['separate', 'mixed', 'hybrid'];
 exports.PRICING_PREFERENCES = ['quick_mixed', 'best_price_separate', 'none'];
+exports.PAYMENT_METHODS = ['cash', 'upi', 'wallet'];
+exports.PAYMENT_STATUSES = ['pending', 'completed', 'failed'];
 // Valid Status Transitions (Sequential order with no skipping allowed)
 exports.VALID_STATUS_TRANSITIONS = {
     pending: ['offered', 'cancelled', 'expired'],

@@ -1,6 +1,11 @@
 // Pickup Routes: Endpoints for customer scrap pickup creation and retrieval
 import { Router } from 'express';
-import { createPickup, getPickup, getMyPickups } from '../controllers/pickup.controller';
+import {
+  createPickup,
+  getPickup,
+  getMyPickups,
+  confirmPickupOtp,
+} from '../controllers/pickup.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
 import { uploadPhotos } from '../middleware/upload';
@@ -19,6 +24,14 @@ router.post(
 
 // Customer views their pickup history
 router.get('/', authenticate, restrictTo(ROLES.CUSTOMER), getMyPickups);
+
+// Customer confirms on-site weights and amount with 6-digit OTP
+router.post(
+  '/:id/confirm-otp',
+  authenticate,
+  restrictTo(ROLES.CUSTOMER),
+  confirmPickupOtp
+);
 
 // View specific pickup details (Customer, Collector, or Admin)
 router.get('/:id', authenticate, getPickup);

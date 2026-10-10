@@ -7,6 +7,10 @@ import {
   declinePickupOffer,
   updatePickupStatus,
   getActiveJobs,
+  recordWeights,
+  requestConfirmationOtp,
+  recordCashPayment,
+  finishPickup,
 } from '../controllers/collector.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
@@ -34,5 +38,17 @@ router.post('/pickups/:id/decline', declinePickupOffer);
 
 // Transition status (e.g. on_the_way, arrived)
 router.patch('/pickups/:id/status', updatePickupStatus);
+
+// Enter on-site weights (Separate or Mixed mode)
+router.post('/pickups/:id/weights', recordWeights);
+
+// Request 6-digit confirmation OTP to be sent to customer
+router.post('/pickups/:id/request-otp', requestConfirmationOtp);
+
+// Record cash payment
+router.post('/pickups/:id/pay-cash', recordCashPayment);
+
+// Complete pickup
+router.post('/pickups/:id/complete', finishPickup);
 
 export default router;

@@ -24,4 +24,12 @@ router.post('/pickups/:id/accept', collector_controller_1.acceptPickupOffer);
 router.post('/pickups/:id/decline', collector_controller_1.declinePickupOffer);
 // Transition status (e.g. on_the_way, arrived)
 router.patch('/pickups/:id/status', collector_controller_1.updatePickupStatus);
+// Enter on-site weights (Separate or Mixed mode)
+router.post('/pickups/:id/weights', collector_controller_1.recordWeights);
+// Request 6-digit confirmation OTP to be sent to customer
+router.post('/pickups/:id/request-otp', collector_controller_1.requestConfirmationOtp);
+// Record cash payment
+router.post('/pickups/:id/pay-cash', collector_controller_1.recordCashPayment);
+// Complete pickup
+router.post('/pickups/:id/complete', collector_controller_1.finishPickup);
 exports.default = router;
