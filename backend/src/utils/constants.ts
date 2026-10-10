@@ -9,6 +9,8 @@ export const ROLES: Record<string, UserRole> = {
   ADMIN: 'admin',
 };
 
+export const LANGUAGES = ['en', 'ta'] as const;
+
 export const SCRAP_CATEGORIES = [
   'iron',
   'plastic',

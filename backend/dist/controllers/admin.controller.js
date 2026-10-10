@@ -1,0 +1,87 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.setRate = exports.getRates = exports.updateZoneStatus = exports.createZone = exports.getZones = void 0;
+const admin_service_1 = __importDefault(require("../services/admin.service"));
+const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
+// GET /api/v1/zones (Public)
+exports.getZones = (0, asyncHandler_1.default)(async (req, res) => {
+    const onlyActive = req.query.active === 'true';
+    const zones = await admin_service_1.default.getZones(onlyActive);
+    res.status(200).json({
+        success: true,
+        message: 'Zones retrieved successfully',
+        data: { zones },
+    });
+});
+// POST /api/v1/admin/zones (Admin Only)
+exports.createZone = (0, asyncHandler_1.default)(async (req, res) => {
+    const { name, coordinates } = req.body;
+    const zone = await admin_service_1.default.createZone({ name, coordinates });
+    res.status(201).json({
+        success: true,
+        message: `Zone "${zone.name}" created successfully`,
+        data: { zone },
+    });
+});
+// PATCH /api/v1/admin/zones/:id/status (Admin Only)
+exports.updateZoneStatus = (0, asyncHandler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    const zone = await admin_service_1.default.updateZoneStatus(id, isActive);
+    res.status(200).json({
+        success: true,
+        message: `Zone status updated to ${isActive ? 'active' : 'inactive'}`,
+        data: { zone },
+    });
+});
+// GET /api/v1/rates (Public)
+exports.getRates = (0, asyncHandler_1.default)(async (req, res) => {
+    const zoneId = req.query.zoneId;
+    const rates = await admin_service_1.default.getAllRates(zoneId);
+    res.status(200).json({
+        success: true,
+        message: 'Rate card retrieved successfully',
+        data: {
+            rates: rates.map((r) => ({
+                category: r.category,
+                ratePerKgPaise: r.ratePerKgPaise,
+                ratePerKgRupees: (r.ratePerKgPaise / 100).toFixed(2), // Friendly preview in INR
+                zoneId: r.zoneId,
+                effectiveFrom: r.effectiveFrom,
+            })),
+        },
+    });
+});
+// POST /api/v1/admin/rates (Admin Only)
+exports.setRate = (0, asyncHandler_1.default)(async (req, res) => {
+    const { category, ratePerKgPaise, zoneId } = req.body;
+    const adminUserId = req.user._id.toString();
+    const rateDoc = await admin_service_1.default.setRate({
+        category,
+        ratePerKgPaise,
+        zoneId,
+        adminUserId,
+    });
+    res.status(200).json({
+        success: true,
+        message: `Rate for "${rateDoc.category}" updated to ₹${(rateDoc.ratePerKgPaise / 100).toFixed(2)}/kg`,
+        data: {
+            rate: {
+                category: rateDoc.category,
+                ratePerKgPaise: rateDoc.ratePerKgPaise,
+                ratePerKgRupees: (rateDoc.ratePerKgPaise / 100).toFixed(2),
+                zoneId: rateDoc.zoneId,
+            },
+        },
+    });
+});
+exports.default = {
+    getZones: exports.getZones,
+    createZone: exports.createZone,
+    updateZoneStatus: exports.updateZoneStatus,
+    getRates: exports.getRates,
+    setRate: exports.setRate,
+};

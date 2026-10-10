@@ -31,7 +31,7 @@ export const createZone = asyncHandler(async (req: Request, res: Response) => {
 export const updateZoneStatus = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { isActive } = req.body;
-  const zone = await adminService.updateZoneStatus(id, isActive);
+  const zone = await adminService.updateZoneStatus(id as string, isActive);
 
   res.status(200).json({
     success: true,
