@@ -1,0 +1,70 @@
+// Express App setup in TypeScript
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import mongoose from 'mongoose';
+
+import env from './config/env';
+import apiRoutes from './routes';
+import { notFound, errorHandler } from './middleware/errorHandler';
+
+export const app = express();
+
+// 1. Security Headers
+app.use(helmet());
+
+// 2. CORS configuration
+const allowedOrigins = [env.clientUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Blocked by CORS policy'));
+    },
+    credentials: true,
+  })
+);
+
+// 3. Body parsers
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 4. Health Check Routes
+app.get('/health', (req: Request, res: Response) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  res.status(200).json({
+    success: true,
+    message: 'WasteWallet API is healthy and running (TypeScript)',
+    data: {
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      database: dbStatus,
+    },
+  });
+});
+
+app.get('/api/v1/health', (req: Request, res: Response) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  res.status(200).json({
+    success: true,
+    message: 'WasteWallet API v1 is healthy and running (TypeScript)',
+    data: {
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      database: dbStatus,
+    },
+  });
+});
+
+// 5. API v1 Router
+app.use('/api/v1', apiRoutes);
+
+// 6. 404 Handler
+app.use(notFound);
+
+// 7. Global Central Error Handler
+app.use(errorHandler);
+
+export default app;

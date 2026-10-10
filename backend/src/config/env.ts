@@ -1,10 +1,9 @@
-// Load environment variables from .env file
-const dotenv = require('dotenv');
-const path = require('path');
+// Load and validate environment variables with TypeScript
+import dotenv from 'dotenv';
+import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// Verify critical environment variables exist at startup
 const requiredEnvVars = ['MONGO_URI'];
 
 for (const envVar of requiredEnvVars) {
@@ -14,11 +13,13 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
-module.exports = {
-  port: process.env.PORT || 5000,
+export const env = {
+  port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  mongoUri: process.env.MONGO_URI,
+  mongoUri: process.env.MONGO_URI as string,
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   jwtSecret: process.env.JWT_SECRET || 'fallback_secret_for_dev_only',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
 };
+
+export default env;

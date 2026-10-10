@@ -2,10 +2,11 @@
   "name": "wastewallet-backend",
   "version": "1.0.0",
   "description": "Scrap collection and sorting platform - Backend API",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
   "keywords": [
     "wastewallet",
@@ -26,7 +27,14 @@
     "pino": "^9.6.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.6.5",
     "nodemon": "^3.1.9",
-    "pino-pretty": "^13.0.0"
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }

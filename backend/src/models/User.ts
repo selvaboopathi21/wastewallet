@@ -1,8 +1,9 @@
-// User Model: Supports Customer, Collector, Store Staff, Buyer, and Admin
-const mongoose = require('mongoose');
-const { ROLES, LANGUAGES } = require('../utils/constants');
+// User Model with TypeScript typing
+import mongoose, { Schema } from 'mongoose';
+import { IUser } from '../types';
+import { ROLES, LANGUAGES } from '../utils/constants';
 
-const userSchema = new mongoose.Schema(
+const userSchema = new Schema<IUser>(
   {
     name: {
       type: String,
@@ -27,21 +28,19 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
-    // GeoJSON Point for distance calculation and nearest-collector dispatch
     location: {
       type: {
         type: String,
         enum: ['Point'],
         default: 'Point',
       },
-      // [longitude, latitude] - standard GeoJSON coordinate order
       coordinates: {
         type: [Number],
-        default: [80.2707, 13.0827], // Default to Chennai, Tamil Nadu coordinates
+        default: [80.2707, 13.0827], // Chennai default [lng, lat]
       },
     },
     zoneId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'Zone',
       default: null,
     },
@@ -58,18 +57,18 @@ const userSchema = new mongoose.Schema(
       enum: LANGUAGES,
       default: 'en',
     },
-    // Collector specific fields
+    // Collector specific
     isApproved: {
       type: Boolean,
-      default: false, // Must be approved by Admin before taking scrap pickups
+      default: false,
     },
     isOnline: {
       type: Boolean,
-      default: false, // Whether collector is currently active on duty
+      default: false,
     },
     acceptanceRate: {
       type: Number,
-      default: 100, // Percentage of jobs accepted vs offered
+      default: 100,
       min: 0,
       max: 100,
     },
@@ -80,12 +79,12 @@ const userSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // Auto adds createdAt and updatedAt
+    timestamps: true,
   }
 );
 
-// 2dsphere index for Geospatial search (e.g., $near, $geoWithin)
 userSchema.index({ location: '2dsphere' });
 userSchema.index({ role: 1, isOnline: 1, isApproved: 1 });
 
-module.exports = mongoose.model('User', userSchema);
+export const User = mongoose.model<IUser>('User', userSchema);
+export default User;
