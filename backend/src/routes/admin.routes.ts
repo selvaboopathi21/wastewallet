@@ -20,6 +20,8 @@ const router = Router();
 // 1. Public Viewing Endpoints (Customers & Collectors need to see current rates & zones)
 router.get('/rates', getRates);
 router.get('/zones', getZones);
+router.get('/admin/rates', getRates);
+router.get('/admin/zones', getZones);
 
 // 2. Admin Management Endpoints (Strictly Admin only)
 router.post('/admin/zones', authenticate, restrictTo(ROLES.ADMIN), createZone);

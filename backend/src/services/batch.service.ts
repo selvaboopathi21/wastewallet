@@ -132,22 +132,23 @@ export const sortBatchMaterials = async (
   const createdMaterials = [];
 
   for (const item of items) {
+    const matType = item.materialType || (item as any).category;
     if (!item.weightKg || item.weightKg <= 0) {
-      throw new ApiError(400, `Invalid weight for sorted material "${item.materialType}"`);
+      throw new ApiError(400, `Invalid weight for sorted material "${matType}"`);
     }
 
     // Special Handling rule: e-waste and battery require strict segregation
-    const isSpecialHandling = item.materialType === 'ewaste' || item.materialType === 'battery';
+    const isSpecialHandling = matType === 'ewaste' || matType === 'battery';
 
     // Automatic Buyer Routing: match by buyer's acceptedMaterials
     const matchingBuyer = await Buyer.findOne({
       isActive: true,
-      acceptedMaterials: item.materialType,
+      acceptedMaterials: matType,
     });
 
     const sortedDoc = await SortedMaterial.create({
       batchId: batch._id,
-      materialType: item.materialType,
+      materialType: matType,
       weightKg: Number(item.weightKg.toFixed(2)),
       isSpecialHandling,
       isDamaged: item.isDamaged || false,

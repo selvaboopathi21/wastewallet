@@ -252,7 +252,11 @@ const getAdminReports = async () => {
         .limit(10);
     // 5. Active Fraud Alerts
     const fraudAlerts = await (0, exports.getFraudAlerts)();
+    const totalPickupsCount = Object.values(statusSummary).reduce((a, b) => a + b, 0);
     return {
+        totalPickups: totalPickupsCount,
+        totalScrapWeightKg: Number((overall.totalWeightKg || 0).toFixed(2)),
+        totalDisbursedPaise: overall.totalAmountPaise || 0,
         statusSummary,
         totals: {
             totalWeightKg: Number((overall.totalWeightKg || 0).toFixed(2)),

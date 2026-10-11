@@ -78,21 +78,42 @@ export const verifyOtpAndLogin = async ({
       zoneId: defaultZoneId,
     });
     isNewUser = true;
-  } else if (user.role === 'collector') {
-    // If existing collector is missing approval or zone, auto-activate
-    let modified = false;
-    if (!user.isApproved) {
-      user.isApproved = true;
-      modified = true;
+  } else {
+    // Sync demo account roles to match demo buttons
+    if (phone === '9876500002') {
+      user.role = 'store_staff';
+      user.name = 'Warehouse Store Staff';
+      await user.save();
+    } else if (phone === '9999999999') {
+      user.role = 'admin';
+      await user.save();
+    } else if (role && role !== user.role && ['9876500001', '9876543210'].includes(phone)) {
+      user.role = role;
+      await user.save();
     }
-    if (!user.zoneId) {
-      const activeZone = await Zone.findOne({ isActive: true });
-      if (activeZone) {
-        user.zoneId = activeZone._id;
+
+    if (user.role === 'collector') {
+      // If existing collector is missing approval or zone, auto-activate
+      let modified = false;
+      if (!user.isApproved) {
+        user.isApproved = true;
         modified = true;
       }
+      if (!user.zoneId) {
+        const activeZone = await Zone.findOne({ isActive: true });
+        if (activeZone) {
+          user.zoneId = activeZone._id;
+          modified = true;
+        }
+      }
+      if (modified) {
+        await user.save();
+      }
     }
-    if (modified) {
+
+    if (['9876500001', '9876543210', '9876500002', '9999999999'].includes(phone)) {
+      user.isBlocked = false;
+      user.isApproved = true;
       await user.save();
     }
   }

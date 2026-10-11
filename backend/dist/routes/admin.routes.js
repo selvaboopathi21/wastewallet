@@ -13,6 +13,8 @@ const router = (0, express_1.Router)();
 // 1. Public Viewing Endpoints (Customers & Collectors need to see current rates & zones)
 router.get('/rates', admin_controller_1.getRates);
 router.get('/zones', admin_controller_1.getZones);
+router.get('/admin/rates', admin_controller_1.getRates);
+router.get('/admin/zones', admin_controller_1.getZones);
 // 2. Admin Management Endpoints (Strictly Admin only)
 router.post('/admin/zones', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.createZone);
 router.patch('/admin/zones/:id/status', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.updateZoneStatus);
