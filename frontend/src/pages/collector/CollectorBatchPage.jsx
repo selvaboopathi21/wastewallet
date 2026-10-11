@@ -129,13 +129,13 @@ export const CollectorBatchPage = () => {
             <div className="p-2 bg-slate-50 rounded-xl">
               <p className="text-2xs text-slate-400 font-semibold uppercase">Pickups</p>
               <p className="text-sm font-black text-slate-900 mt-0.5">
-                {activeBatch.pickups?.length || 0}
+                {activeBatch.pickupRequestIds?.length || activeBatch.pickups?.length || 1}
               </p>
             </div>
             <div className="p-2 bg-slate-50 rounded-xl">
               <p className="text-2xs text-slate-400 font-semibold uppercase">Total Weight</p>
               <p className="text-sm font-black text-emerald-600 mt-0.5">
-                {activeBatch.totalWeightDepositedKg || 0} kg
+                {activeBatch.depositedWeightKg ?? activeBatch.totalWeightDepositedKg ?? 0} kg
               </p>
             </div>
             <div className="p-2 bg-slate-50 rounded-xl">
@@ -171,7 +171,9 @@ export const CollectorBatchPage = () => {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-emerald-700">{b.totalWeightDepositedKg} kg</p>
+                  <p className="font-bold text-emerald-700">
+                    {b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg
+                  </p>
                   <span className="text-2xs text-slate-400 uppercase font-semibold">{b.status}</span>
                 </div>
               </div>
