@@ -488,10 +488,32 @@ export const LiveTrackingPage = () => {
         </div>
       )}
 
-      {confirmSuccess && (
-        <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl text-emerald-900 text-xs font-bold flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-          <span>{confirmSuccess}</span>
+      {/* Step: Bill Confirmed & Cash Handover In Progress */}
+      {pickup.status === 'confirmed' && (
+        <div className="bg-emerald-50 border-2 border-emerald-400 rounded-3xl p-5 shadow-sm space-y-3 text-center">
+          <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-2xs font-bold bg-emerald-200 text-emerald-950 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              Bill Verified & Locked
+            </span>
+            <h4 className="text-base font-black text-emerald-950 mt-1">
+              ₹{((pickup.totalAmountPaise || 0) / 100).toFixed(2)} Cash Payout
+            </h4>
+            <p className="text-xs text-emerald-800 mt-1">
+              Your 6-digit OTP verified successfully! The collector is now handing over cash to you at your doorstep.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {(pickup.status === 'completed' || pickup.status === 'paid') && (
+        <div className="bg-emerald-50 border-2 border-emerald-500 rounded-3xl p-4 shadow-sm text-center space-y-1">
+          <span className="text-2xs font-bold uppercase tracking-wider text-emerald-700">Payment Complete</span>
+          <h4 className="text-sm font-black text-emerald-950">
+            🎉 ₹{((pickup.totalAmountPaise || 0) / 100).toFixed(2)} Received in Cash!
+          </h4>
         </div>
       )}
 

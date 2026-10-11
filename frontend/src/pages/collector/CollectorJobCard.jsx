@@ -226,9 +226,17 @@ export const CollectorJobCard = () => {
     }
     setActionLoading(true);
     try {
-      await api.post(`/pickups/${pickupId}/confirm-otp`, { otp: code });
-      setPickup((prev) => ({ ...prev, status: 'confirmed', customerConfirmed: true }));
-      alert('Bill amount verified & locked! Please hand over cash.');
+      const res = await api.post(`/pickups/${pickupId}/confirm-otp`, { otp: code });
+      const updated = res?.data?.pickup || res?.data?.data?.pickup;
+      if (updated) {
+        setPickup(updated);
+      } else {
+        setPickup((prev) => ({ ...prev, status: 'confirmed', customerConfirmed: true }));
+      }
+      await fetchPickupDetails();
+      setTimeout(() => {
+        document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     } catch (err) {
       alert(err.message || 'OTP verification failed');
     } finally {
@@ -599,7 +607,7 @@ export const CollectorJobCard = () => {
 
       {/* Step 4: Cash Payment & Finalize */}
       {pickup.status === 'confirmed' && (
-        <div className="bg-emerald-50 border-2 border-emerald-400 rounded-3xl p-5 shadow-sm space-y-3">
+        <div id="payment-section" className="bg-emerald-50 border-2 border-emerald-500 rounded-3xl p-5 shadow-md space-y-3">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
             <div>
