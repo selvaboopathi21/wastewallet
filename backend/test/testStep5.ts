@@ -99,21 +99,27 @@ async function runStep5Test() {
   const offeredCollectorId = pickupRes.data.pickup.currentOfferCollectorId;
   console.log('Pickup Status:', pickupRes.data.pickup.status);
   console.log('Offered to Collector ID:', offeredCollectorId);
-  console.log('Matches Top Collector Murugan?:', offeredCollectorId === collector1._id.toString());
 
-  // TEST 2: Collector 2 (Kannan) tries to steal/accept Murugan\'s offer (Expect 409 rejection)
-  console.log('\n2. Another collector tries to accept the offer (Expect 409 Conflict)...');
+  // Dynamically determine who is the offered collector and who is the unauthorized collector
+  const isMuruganOffered = offeredCollectorId === collector1._id.toString();
+  const rightfulToken = isMuruganOffered ? collector1Token : collector2Token;
+  const rightfulName = isMuruganOffered ? 'Murugan' : 'Kannan';
+  const unauthorizedToken = isMuruganOffered ? collector2Token : collector1Token;
+  const unauthorizedName = isMuruganOffered ? 'Kannan' : 'Murugan';
+
+  // TEST 2: Unauthorized collector tries to steal/accept the offer (Expect 409 rejection)
+  console.log(`\n2. Unauthorized collector (${unauthorizedName}) tries to accept offer (Expect 409 Conflict)...`);
   const stealRes: any = await fetch(`${BASE_URL}/collector/pickups/${pickupId}/accept`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${collector2Token}` },
+    headers: { Authorization: `Bearer ${unauthorizedToken}` },
   }).then((r) => r.json());
-  console.log('Expected Rejection:', stealRes.message);
+  console.log('Expected Rejection Message:', stealRes.message);
 
-  // TEST 3: Collector 1 (Murugan) accepts atomically
-  console.log('\n3. Rightful collector (Murugan) atomically accepts offer...');
+  // TEST 3: Rightful collector accepts atomically
+  console.log(`\n3. Rightful collector (${rightfulName}) atomically accepts offer...`);
   const acceptRes: any = await fetch(`${BASE_URL}/collector/pickups/${pickupId}/accept`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${collector1Token}` },
+    headers: { Authorization: `Bearer ${rightfulToken}` },
   }).then((r) => r.json());
   console.log('Accept Status:', acceptRes.data.pickup.status);
   console.log('Assigned Collector:', acceptRes.data.pickup.collectorId);
@@ -124,7 +130,7 @@ async function runStep5Test() {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${collector1Token}`,
+      Authorization: `Bearer ${rightfulToken}`,
     },
     body: JSON.stringify({ status: 'on_the_way' }),
   }).then((r) => r.json());
@@ -134,7 +140,7 @@ async function runStep5Test() {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${collector1Token}`,
+      Authorization: `Bearer ${rightfulToken}`,
     },
     body: JSON.stringify({ status: 'arrived' }),
   }).then((r) => r.json());

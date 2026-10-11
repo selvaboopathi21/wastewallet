@@ -86,10 +86,64 @@ export const setRate = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+// GET /api/v1/admin/reports (Admin Dashboard Summary)
+export const getDashboardReports = asyncHandler(async (req: Request, res: Response) => {
+  const reports = await adminService.getAdminReports();
+
+  res.status(200).json({
+    success: true,
+    message: 'Admin dashboard reports retrieved successfully',
+    data: reports,
+  });
+});
+
+// GET /api/v1/admin/fraud-alerts (Fraud & Anomaly Alerts)
+export const getFraudAlertsList = asyncHandler(async (req: Request, res: Response) => {
+  const alerts = await adminService.getFraudAlerts();
+
+  res.status(200).json({
+    success: true,
+    message: `Retrieved ${alerts.length} active fraud alerts`,
+    data: { alerts },
+  });
+});
+
+// PATCH /api/v1/admin/collectors/:id/approve (Admin approves/revokes collector)
+export const approveCollector = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { isApproved } = req.body;
+
+  const collector = await adminService.updateCollectorApproval(id as string, Boolean(isApproved));
+
+  res.status(200).json({
+    success: true,
+    message: `Collector ${collector.name || collector.phone} approval updated to ${isApproved}`,
+    data: { collector },
+  });
+});
+
+// PATCH /api/v1/admin/users/:id/block (Admin blocks/unblocks user)
+export const blockUser = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { isBlocked } = req.body;
+
+  const user = await adminService.updateUserBlockStatus(id as string, Boolean(isBlocked));
+
+  res.status(200).json({
+    success: true,
+    message: `User ${user.name || user.phone} blocked status updated to ${isBlocked}`,
+    data: { user },
+  });
+});
+
 export default {
   getZones,
   createZone,
   updateZoneStatus,
   getRates,
   setRate,
+  getDashboardReports,
+  getFraudAlertsList,
+  approveCollector,
+  blockUser,
 };

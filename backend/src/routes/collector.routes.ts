@@ -11,6 +11,7 @@ import {
   requestConfirmationOtp,
   recordCashPayment,
   finishPickup,
+  respondSeparatePrice,
 } from '../controllers/collector.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
@@ -41,6 +42,9 @@ router.patch('/pickups/:id/status', updatePickupStatus);
 
 // Enter on-site weights (Separate or Mixed mode)
 router.post('/pickups/:id/weights', recordWeights);
+
+// Respond to "See separate price" request (Accept or Decline with reason)
+router.post('/pickups/:id/respond-separate', respondSeparatePrice);
 
 // Request 6-digit confirmation OTP to be sent to customer
 router.post('/pickups/:id/request-otp', requestConfirmationOtp);

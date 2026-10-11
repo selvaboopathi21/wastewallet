@@ -10,10 +10,13 @@ export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
 
   res.status(200).json({
     success: true,
-    message: 'OTP sent successfully to your phone number',
+    message: result.otp 
+      ? `OTP generated! [Demo OTP: ${result.otp}]` 
+      : 'OTP sent successfully to your phone number',
     data: {
       phone: result.phone,
       expiresAt: result.expiresAt,
+      otp: result.otp,
     },
   });
 });

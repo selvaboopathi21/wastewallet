@@ -122,6 +122,21 @@ export const recordWeighedItems = async ({
     `⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode)`
   );
 
+  // Real-Time Socket.io: Notify customer live about updated weights and amount
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitWeightUpdated(pickup._id.toString(), pickup.customerId.toString(), {
+      pickupId: pickup._id,
+      mode,
+      totalPickupWeightKg: pickup.totalPickupWeightKg,
+      totalAmountPaise: pickup.totalAmountPaise,
+      totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
+      items: createdItems,
+    });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event weight.updated: ${err.message}`);
+  }
+
   return {
     pickup,
     items: createdItems,
@@ -149,13 +164,14 @@ export const requestCustomerConfirmationOtp = async (
   }
 
   const customer: any = pickup.customerId;
-  await otpService.generateAndSaveOtp(customer.phone);
+  const otpResult = await otpService.generateAndSaveOtp(customer.phone);
 
   return {
     phone: customer.phone,
     totalPickupWeightKg: pickup.totalPickupWeightKg,
     totalAmountPaise: pickup.totalAmountPaise,
     totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
+    otp: otpResult.otp,
   };
 };
 
@@ -197,6 +213,154 @@ export const confirmPickupWithOtp = async (
 
   logger.info(`🔒 Customer confirmed pickup ${pickup._id} with OTP! Amount locked at ₹${(pickup.totalAmountPaise / 100).toFixed(2)}`);
 
+  // Real-Time Socket.io: Notify collector that amount and weight are locked
+  try {
+    const sockets = (await import('../sockets')).default;
+    if (pickup.collectorId) {
+      sockets.emitPickupConfirmed(pickup._id.toString(), pickup.collectorId.toString(), {
+        pickupId: pickup._id,
+        status: 'confirmed',
+        totalAmountPaise: pickup.totalAmountPaise,
+        totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
+        customerConfirmed: true,
+      });
+    }
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pickup.confirmed: ${err.message}`);
+  }
+
+  return pickup;
+};
+
+/**
+ * 3. Customer requests "See separate price" (only while status is weighed & mode is mixed/hybrid)
+ */
+export const requestSeparatePrice = async (pickupId: string, customerId: string) => {
+  const pickup = await PickupRequest.findOne({
+    _id: pickupId,
+    customerId: new Types.ObjectId(customerId),
+  });
+
+  if (!pickup) {
+    throw new ApiError(404, 'Pickup request not found for this customer');
+  }
+
+  if (pickup.status !== 'weighed') {
+    throw new ApiError(400, `Cannot request separate price. Pickup status must be "weighed", but is "${pickup.status}".`);
+  }
+
+  if (pickup.customerConfirmed) {
+    throw new ApiError(400, 'Pickup amount is already confirmed and locked.');
+  }
+
+  if (pickup.pricingMode !== 'mixed' && pickup.pricingMode !== 'hybrid') {
+    throw new ApiError(400, 'Separate price can only be requested when pricing mode is mixed or hybrid.');
+  }
+
+  if (!pickup.collectorId) {
+    throw new ApiError(400, 'No collector assigned to this pickup.');
+  }
+
+  pickup.separateRequest = {
+    requested: true,
+    requestedAt: new Date(),
+    status: 'pending',
+    declineReason: '',
+  };
+
+  await pickup.save();
+
+  logger.info(`🔍 Customer requested separate price for pickup ${pickup._id}`);
+
+  // Real-Time Socket.io: Notify collector of customer request
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitSeparatePriceRequested(pickup._id.toString(), pickup.collectorId.toString(), {
+      pickupId: pickup._id,
+      status: 'pending',
+      requestedAt: pickup.separateRequest.requestedAt,
+    });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pricing.separate.requested: ${err.message}`);
+  }
+
+  return pickup;
+};
+
+/**
+ * 4. Collector responds to "See separate price" request (Accept or Decline with Reason)
+ */
+export const respondSeparatePrice = async (
+  pickupId: string,
+  collectorId: string,
+  action: 'accept' | 'decline',
+  declineReason?: string
+) => {
+  const pickup = await PickupRequest.findOne({
+    _id: pickupId,
+    collectorId: new Types.ObjectId(collectorId),
+  });
+
+  if (!pickup) {
+    throw new ApiError(404, 'Pickup request not found or not assigned to this collector');
+  }
+
+  if (pickup.status !== 'weighed') {
+    throw new ApiError(400, `Cannot respond to separate price while status is "${pickup.status}". Must be "weighed".`);
+  }
+
+  if (pickup.customerConfirmed) {
+    throw new ApiError(400, 'Pickup amount is already confirmed and locked.');
+  }
+
+  if (!pickup.separateRequest || pickup.separateRequest.status !== 'pending') {
+    throw new ApiError(400, 'No pending separate price request found for this pickup.');
+  }
+
+  if (action === 'accept') {
+    pickup.separateRequest.status = 'accepted';
+    pickup.pricingMode = 'separate';
+    await pickup.save();
+
+    logger.info(`🤝 Collector accepted separate price request for pickup ${pickup._id}. Mode switched to separate.`);
+
+    // Real-Time Socket.io: Notify customer that collector agreed to itemize
+    try {
+      const sockets = (await import('../sockets')).default;
+      sockets.emitSeparatePriceAccepted(pickup._id.toString(), pickup.customerId.toString(), {
+        pickupId: pickup._id,
+        pricingMode: 'separate',
+        status: 'accepted',
+      });
+    } catch (err: any) {
+      logger.warn(`Could not emit Socket event pricing.separate.accepted: ${err.message}`);
+    }
+  } else if (action === 'decline') {
+    if (!declineReason || !declineReason.trim()) {
+      throw new ApiError(400, 'A reason is required when declining separate price request (e.g. "Only 1 kg total")');
+    }
+
+    pickup.separateRequest.status = 'declined';
+    pickup.separateRequest.declineReason = declineReason.trim();
+    await pickup.save();
+
+    logger.info(`🚫 Collector declined separate price request for pickup ${pickup._id}: "${declineReason}"`);
+
+    // Real-Time Socket.io: Notify customer that collector declined with reason
+    try {
+      const sockets = (await import('../sockets')).default;
+      sockets.emitSeparatePriceDeclined(pickup._id.toString(), pickup.customerId.toString(), {
+        pickupId: pickup._id,
+        status: 'declined',
+        declineReason: pickup.separateRequest.declineReason,
+      });
+    } catch (err: any) {
+      logger.warn(`Could not emit Socket event pricing.separate.declined: ${err.message}`);
+    }
+  } else {
+    throw new ApiError(400, 'Invalid action. Must be "accept" or "decline".');
+  }
+
   return pickup;
 };
 
@@ -205,4 +369,6 @@ export default {
   recordWeighedItems,
   requestCustomerConfirmationOtp,
   confirmPickupWithOtp,
+  requestSeparatePrice,
+  respondSeparatePrice,
 };

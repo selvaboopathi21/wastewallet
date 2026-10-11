@@ -85,9 +85,25 @@ export const confirmPickupOtp = asyncHandler(async (req: Request, res: Response)
   });
 });
 
+// POST /api/v1/pickups/:id/request-separate (Customer requests separate price breakdown)
+export const requestSeparatePrice = asyncHandler(async (req: Request, res: Response) => {
+  const customerId = req.user!._id.toString();
+  const { id } = req.params;
+
+  const pricingService = (await import('../services/pricing.service')).default;
+  const updatedPickup = await pricingService.requestSeparatePrice(id as string, customerId);
+
+  res.status(200).json({
+    success: true,
+    message: 'Separate price request sent to collector',
+    data: { pickup: updatedPickup },
+  });
+});
+
 export default {
   createPickup,
   getPickup,
   getMyPickups,
   confirmPickupOtp,
+  requestSeparatePrice,
 };

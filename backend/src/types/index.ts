@@ -171,3 +171,68 @@ export interface IPayment extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// 15. Batch Types & Interface
+export type BatchStatus = 'deposited' | 'received' | 'sorted';
+
+export interface IBatch extends Document {
+  _id: Types.ObjectId;
+  collectorId: Types.ObjectId;
+  pickupRequestIds: Types.ObjectId[];
+  qrCode: string;
+  depositedWeightKg: number;
+  receivedWeightKg?: number;
+  lossPercent?: number;
+  status: BatchStatus;
+  receivedBy?: Types.ObjectId | null;
+  depositedAt: Date;
+  receivedAt?: Date;
+  sortedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 16. Sorted Material Types & Interface
+export type SortedMaterialStatus = 'sorted' | 'dispatched' | 'delivered';
+
+export interface ISortedMaterial extends Document {
+  _id: Types.ObjectId;
+  batchId: Types.ObjectId;
+  materialType: ScrapCategory;
+  weightKg: number;
+  isSpecialHandling: boolean; // e-waste & battery are special handling
+  isDamaged: boolean;
+  destinationBuyerId?: Types.ObjectId | null;
+  status: SortedMaterialStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 17. Buyer Interface
+export interface IBuyer extends Document {
+  _id: Types.ObjectId;
+  name: string;
+  acceptedMaterials: ScrapCategory[];
+  location?: string;
+  contact: {
+    phone: string;
+    email?: string;
+    person?: string;
+  };
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 18. Rating Interface
+export interface IRating extends Document {
+  _id: Types.ObjectId;
+  requestId: Types.ObjectId;
+  fromUserId: Types.ObjectId;
+  toUserId: Types.ObjectId;
+  stars: number; // 1 to 5
+  tags: string[];
+  comment?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}

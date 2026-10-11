@@ -112,6 +112,74 @@ export const seedDatabase = async () => {
   }
   logger.info(`✅ Seeded ${defaultRates.length} standard scrap rate card items in Paise.`);
 
+  // 4. Seed Store Staff User
+  const staffPhone = '9876599999';
+  let staff = await User.findOne({ phone: staffPhone });
+  if (!staff) {
+    staff = await User.create({
+      phone: staffPhone,
+      name: 'Store Manager Selvam',
+      role: 'store_staff',
+      isApproved: true,
+      isBlocked: false,
+      language: 'en',
+    });
+    logger.info(`✅ Created Store Staff user with phone: ${staffPhone}`);
+  } else {
+    staff.role = 'store_staff';
+    await staff.save();
+  }
+
+  // 5. Seed Recycler Buyers for Automatic Material Routing
+  const Buyer = (await import('../models/Buyer')).default;
+  const defaultBuyers = [
+    {
+      name: 'Chennai Metal Recyclers Ltd',
+      acceptedMaterials: ['iron', 'other'],
+      contact: { phone: '9444011111', person: 'Murugesan' },
+      location: 'Ambattur Industrial Estate, Chennai',
+    },
+    {
+      name: 'Tamil Nadu Plastic Processing Plant',
+      acceptedMaterials: ['plastic', 'mixed'],
+      contact: { phone: '9444022222', person: 'Kavitha' },
+      location: 'Guindy Industrial Estate, Chennai',
+    },
+    {
+      name: 'Apex Copper Recovery Unit',
+      acceptedMaterials: ['copper_wire'],
+      contact: { phone: '9444033333', person: 'Suresh' },
+      location: 'Sriperumbudur, Tamil Nadu',
+    },
+    {
+      name: 'Eco-Green E-Waste Recyclers',
+      acceptedMaterials: ['ewaste'],
+      contact: { phone: '9444044444', person: 'Venkatesh' },
+      location: 'Maraimalai Nagar, Chennai',
+    },
+    {
+      name: 'VoltPower Battery Safe Recovery',
+      acceptedMaterials: ['battery'],
+      contact: { phone: '9444055555', person: 'Radha' },
+      location: 'Gummidipoondi, Tamil Nadu',
+    },
+    {
+      name: 'South Paper Mill Reclaimers',
+      acceptedMaterials: ['paper'],
+      contact: { phone: '9444066666', person: 'Manikandan' },
+      location: 'Madhavaram, Chennai',
+    },
+  ];
+
+  for (const b of defaultBuyers) {
+    await Buyer.findOneAndUpdate(
+      { name: b.name },
+      { ...b, isActive: true },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+  logger.info(`✅ Seeded ${defaultBuyers.length} specialist recycling buyers.`);
+
   await mongoose.disconnect();
   logger.info('🎉 Seeding completed successfully and database disconnected!\n');
 };

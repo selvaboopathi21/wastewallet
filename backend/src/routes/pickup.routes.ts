@@ -5,6 +5,7 @@ import {
   getPickup,
   getMyPickups,
   confirmPickupOtp,
+  requestSeparatePrice,
 } from '../controllers/pickup.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
@@ -24,6 +25,14 @@ router.post(
 
 // Customer views their pickup history
 router.get('/', authenticate, restrictTo(ROLES.CUSTOMER), getMyPickups);
+
+// Customer requests itemized separate price (only in mixed mode)
+router.post(
+  '/:id/request-separate',
+  authenticate,
+  restrictTo(ROLES.CUSTOMER),
+  requestSeparatePrice
+);
 
 // Customer confirms on-site weights and amount with 6-digit OTP
 router.post(

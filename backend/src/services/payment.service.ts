@@ -53,6 +53,18 @@ export const processCashPayment = async (
     `💵 Cash payment of ₹${(pickup.totalAmountPaise / 100).toFixed(2)} recorded for pickup ${pickup._id}`
   );
 
+  // Real-Time Socket.io: Notify customer and collector of payment
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitStatusChanged(pickup._id.toString(), {
+      pickupId: pickup._id,
+      requestId: pickup._id,
+      newStatus: 'paid',
+    });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pickup.status.changed: ${err.message}`);
+  }
+
   return {
     pickup,
     payment,
@@ -84,6 +96,19 @@ export const completePickup = async (
   await pickup.save();
 
   logger.info(`🏁 Pickup ${pickup._id} successfully completed!`);
+
+  // Real-Time Socket.io: Notify customer and collector of completion
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitStatusChanged(pickup._id.toString(), {
+      pickupId: pickup._id,
+      requestId: pickup._id,
+      newStatus: 'completed',
+    });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pickup.status.changed: ${err.message}`);
+  }
+
   return pickup;
 };
 

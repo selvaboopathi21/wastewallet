@@ -161,6 +161,14 @@ export const atomicAcceptPickup = async (
   }
 
   logger.info(`🤝 Collector ${collectorId} atomically accepted pickup ${pickupId}!`);
+
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitStatusChanged(pickupId, { newStatus: 'accepted', collectorId });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pickup.status.changed: ${err.message}`);
+  }
+
   return acceptedPickup;
 };
 
@@ -211,10 +219,19 @@ export const transitionPickupStatus = async (
     );
   }
 
+  const oldStatus = pickup.status;
   pickup.status = newStatus;
   await pickup.save();
 
-  logger.info(`Status transition for pickup ${pickupId}: ${pickup.status} ➔ ${newStatus}`);
+  logger.info(`Status transition for pickup ${pickupId}: ${oldStatus} ➔ ${newStatus}`);
+
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitStatusChanged(pickupId, { newStatus, previousStatus: oldStatus });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pickup.status.changed: ${err.message}`);
+  }
+
   return pickup;
 };
 

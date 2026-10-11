@@ -126,6 +126,203 @@ export const getAllRates = async (zoneId?: string): Promise<IRateCard[]> => {
   return await RateCard.find({ zoneId: targetZoneId }).sort({ category: 1 });
 };
 
+// --- FRAUD DETECTION & AUDIT ALERTS ---
+
+export interface IFraudAlert {
+  type: 'high_loss_percentage' | 'excessive_mixed_mode';
+  severity: 'warning' | 'critical';
+  collectorId: string;
+  collectorName: string;
+  collectorPhone: string;
+  metricValue: number;
+  thresholdValue: number;
+  message: string;
+}
+
+export const getFraudAlerts = async (): Promise<IFraudAlert[]> => {
+  const Batch = (await import('../models/Batch')).default;
+  const PickupRequest = (await import('../models/PickupRequest')).default;
+  const User = (await import('../models/User')).default;
+
+  const alerts: IFraudAlert[] = [];
+
+  // 1. Check Loss Percentage Anomalies per Collector
+  // Get all received or sorted batches with a valid loss percentage
+  const batches = await Batch.find({ status: { $in: ['received', 'sorted'] }, lossPercent: { $ne: null } })
+    .populate('collectorId', 'name phone');
+
+  if (batches.length > 0) {
+    // Calculate global average loss percent
+    const totalLoss = batches.reduce((sum, b) => sum + (b.lossPercent || 0), 0);
+    const globalAvgLoss = Number((totalLoss / batches.length).toFixed(2));
+
+    // Group batches by collector
+    const collectorLossMap = new Map<string, { totalLoss: number; count: number; collector: any }>();
+    for (const b of batches) {
+      if (!b.collectorId) continue;
+      const cid = b.collectorId._id.toString();
+      const existing = collectorLossMap.get(cid) || { totalLoss: 0, count: 0, collector: b.collectorId };
+      existing.totalLoss += b.lossPercent || 0;
+      existing.count += 1;
+      collectorLossMap.set(cid, existing);
+    }
+
+    // Flag any collector whose average loss % exceeds acceptable threshold (20%) or exceeds global average
+    for (const [cid, data] of collectorLossMap.entries()) {
+      const avgLoss = Number((data.totalLoss / data.count).toFixed(2));
+      const threshold = 20;
+
+      if (avgLoss >= threshold && data.count >= 1) {
+        alerts.push({
+          type: 'high_loss_percentage',
+          severity: avgLoss > 30 ? 'critical' : 'warning',
+          collectorId: cid,
+          collectorName: data.collector?.name || `Collector (${data.collector?.phone || 'Unknown'})`,
+          collectorPhone: data.collector?.phone || 'N/A',
+          metricValue: avgLoss,
+          thresholdValue: threshold,
+          message: `Collector average deposit loss of ${avgLoss}% exceeds normal loss tolerance (${threshold}%). Potential scale tampering, moisture loss, or non-recyclable contamination.`,
+        });
+      }
+    }
+  }
+
+  // 2. Check Excessive Mixed Mode Pushing
+  // When customers preferred separate price, check if collector frequently pushed them into mixed mode
+  const pickupsWithPreference = await PickupRequest.find({
+    status: 'completed',
+    customerPricingPreference: 'best_price_separate',
+  }).populate('collectorId', 'name phone');
+
+  const collectorModeMap = new Map<string, { total: number; forcedMixed: number; collector: any }>();
+  for (const p of pickupsWithPreference) {
+    if (!p.collectorId) continue;
+    const cid = p.collectorId._id.toString();
+    const data = collectorModeMap.get(cid) || { total: 0, forcedMixed: 0, collector: p.collectorId };
+    data.total += 1;
+    if (p.pricingMode === 'mixed') {
+      data.forcedMixed += 1;
+    }
+    collectorModeMap.set(cid, data);
+  }
+
+  for (const [cid, data] of collectorModeMap.entries()) {
+    if (data.total >= 3) {
+      const mixedPercent = Number(((data.forcedMixed / data.total) * 100).toFixed(1));
+      if (mixedPercent > 65) {
+        alerts.push({
+          type: 'excessive_mixed_mode',
+          severity: 'warning',
+          collectorId: cid,
+          collectorName: data.collector.name || 'Unknown',
+          collectorPhone: data.collector.phone,
+          metricValue: mixedPercent,
+          thresholdValue: 65,
+          message: `Collector converted ${mixedPercent}% of pickups to mixed mode despite customer preference for itemized pricing. Potential margin exploitation.`,
+        });
+      }
+    }
+  }
+
+  return alerts;
+};
+
+// --- ADMIN SYSTEM & PERFORMANCE REPORTS ---
+
+export const getAdminReports = async () => {
+  const PickupRequest = (await import('../models/PickupRequest')).default;
+  const PickupItem = (await import('../models/PickupItem')).default;
+  const User = (await import('../models/User')).default;
+  const Batch = (await import('../models/Batch')).default;
+
+  // 1. Overall Pickup Status Summary
+  const statusCounts = await PickupRequest.aggregate([
+    { $group: { _id: '$status', count: { $sum: 1 } } },
+  ]);
+  const statusSummary: Record<string, number> = {};
+  statusCounts.forEach((s) => (statusSummary[s._id] = s.count));
+
+  // 2. Total Weight and Volume Collected (Completed pickups)
+  const totals = await PickupRequest.aggregate([
+    { $match: { status: 'completed' } },
+    {
+      $group: {
+        _id: null,
+        totalWeightKg: { $sum: '$totalPickupWeightKg' },
+        totalAmountPaise: { $sum: '$totalAmountPaise' },
+        completedPickups: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const overall = totals[0] || { totalWeightKg: 0, totalAmountPaise: 0, completedPickups: 0 };
+
+  // 3. Category-wise Scrap Totals (from itemized line items)
+  const categoryTotals = await PickupItem.aggregate([
+    {
+      $group: {
+        _id: '$category',
+        totalKg: { $sum: '$weightKg' },
+        totalAmountPaise: { $sum: '$amountPaise' },
+        itemsCount: { $sum: 1 },
+      },
+    },
+    { $sort: { totalKg: -1 } },
+  ]);
+
+  // 4. Collector Leaderboard
+  const collectorLeaderboard = await User.find({ role: 'collector' })
+    .select('name phone rating storeName isApproved isOnline')
+    .sort({ 'rating.avg': -1, 'rating.count': -1 })
+    .limit(10);
+
+  // 5. Active Fraud Alerts
+  const fraudAlerts = await getFraudAlerts();
+
+  return {
+    statusSummary,
+    totals: {
+      totalWeightKg: Number((overall.totalWeightKg || 0).toFixed(2)),
+      totalAmountPaise: overall.totalAmountPaise || 0,
+      totalAmountRupees: ((overall.totalAmountPaise || 0) / 100).toFixed(2),
+      completedPickups: overall.completedPickups || 0,
+    },
+    categoryTotals: categoryTotals.map((c) => ({
+      category: c._id,
+      totalKg: Number(c.totalKg.toFixed(2)),
+      totalAmountPaise: c.totalAmountPaise,
+      totalAmountRupees: (c.totalAmountPaise / 100).toFixed(2),
+      itemsCount: c.itemsCount,
+    })),
+    collectorLeaderboard,
+    fraudAlerts,
+  };
+};
+
+// --- USER MANAGEMENT (Approve / Block) ---
+
+export const updateCollectorApproval = async (collectorId: string, isApproved: boolean) => {
+  const User = (await import('../models/User')).default;
+  const collector = await User.findOneAndUpdate(
+    { _id: new Types.ObjectId(collectorId), role: 'collector' },
+    { isApproved },
+    { new: true }
+  );
+  if (!collector) {
+    throw new ApiError(404, 'Collector not found');
+  }
+  return collector;
+};
+
+export const updateUserBlockStatus = async (userId: string, isBlocked: boolean) => {
+  const User = (await import('../models/User')).default;
+  const user = await User.findByIdAndUpdate(userId, { isBlocked }, { new: true });
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+  return user;
+};
+
 export default {
   createZone,
   getZones,
@@ -133,4 +330,8 @@ export default {
   findZoneByCoordinates,
   setRate,
   getAllRates,
+  getFraudAlerts,
+  getAdminReports,
+  updateCollectorApproval,
+  updateUserBlockStatus,
 };

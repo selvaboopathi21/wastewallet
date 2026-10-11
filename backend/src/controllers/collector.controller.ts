@@ -189,6 +189,27 @@ export const finishPickup = asyncHandler(async (req: Request, res: Response) => 
   });
 });
 
+// POST /api/v1/collector/pickups/:id/respond-separate (Collector accepts/declines separate price request)
+export const respondSeparatePrice = asyncHandler(async (req: Request, res: Response) => {
+  const collectorId = req.user!._id.toString();
+  const { id } = req.params;
+  const { action, declineReason } = req.body;
+
+  const pricingService = (await import('../services/pricing.service')).default;
+  const updatedPickup = await pricingService.respondSeparatePrice(
+    id as string,
+    collectorId,
+    action,
+    declineReason
+  );
+
+  res.status(200).json({
+    success: true,
+    message: `Separate price request ${action}ed successfully`,
+    data: { pickup: updatedPickup },
+  });
+});
+
 export default {
   toggleOnlineStatus,
   getMyOffers,
@@ -200,4 +221,5 @@ export default {
   requestConfirmationOtp,
   recordCashPayment,
   finishPickup,
+  respondSeparatePrice,
 };

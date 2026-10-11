@@ -9,6 +9,7 @@ import { OTP_CONFIG } from '../utils/constants';
 export interface IGenerateOtpResult {
   phone: string;
   expiresAt: Date;
+  otp?: string;
 }
 
 export const generateAndSaveOtp = async (phone: string): Promise<IGenerateOtpResult> => {
@@ -36,6 +37,7 @@ export const generateAndSaveOtp = async (phone: string): Promise<IGenerateOtpRes
   return {
     phone,
     expiresAt,
+    otp: env.nodeEnv !== 'production' ? plainOtp : undefined,
   };
 };
 
