@@ -14,31 +14,31 @@ import { ROLES } from '../utils/constants';
 
 const router = Router();
 
-// Customer creates a new scrap pickup (with optional up to 5 photos)
+// Customer/User creates a new scrap pickup (with optional up to 5 photos)
 router.post(
   '/',
   authenticate,
-  restrictTo(ROLES.CUSTOMER),
+  restrictTo(ROLES.CUSTOMER, ROLES.COLLECTOR, ROLES.ADMIN),
   uploadPhotos.array('photos', 5),
   createPickup
 );
 
-// Customer views their pickup history
-router.get('/', authenticate, restrictTo(ROLES.CUSTOMER), getMyPickups);
+// View pickup history
+router.get('/', authenticate, restrictTo(ROLES.CUSTOMER, ROLES.COLLECTOR, ROLES.ADMIN), getMyPickups);
 
-// Customer requests itemized separate price (only in mixed mode)
+// Request itemized separate price (in mixed mode)
 router.post(
   '/:id/request-separate',
   authenticate,
-  restrictTo(ROLES.CUSTOMER),
+  restrictTo(ROLES.CUSTOMER, ROLES.COLLECTOR, ROLES.ADMIN),
   requestSeparatePrice
 );
 
-// Customer confirms on-site weights and amount with 6-digit OTP
+// Confirm on-site weights and amount with 6-digit OTP
 router.post(
   '/:id/confirm-otp',
   authenticate,
-  restrictTo(ROLES.CUSTOMER),
+  restrictTo(ROLES.CUSTOMER, ROLES.COLLECTOR, ROLES.ADMIN),
   confirmPickupOtp
 );
 
