@@ -62,7 +62,7 @@ export const createPickupRequest = async ({
   }
 
   // 4. Normalize and map customer pricing preference
-  let normalizedPref = customerPricingPreference || 'none';
+  let normalizedPref: string = customerPricingPreference || 'none';
   if (normalizedPref === 'separate') normalizedPref = 'best_price_separate';
   if (normalizedPref === 'mixed') normalizedPref = 'quick_mixed';
 

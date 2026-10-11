@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -107,6 +140,68 @@ const seedDatabase = async () => {
         }, { upsert: true, new: true, setDefaultsOnInsert: true });
     }
     logger_1.default.info(`✅ Seeded ${defaultRates.length} standard scrap rate card items in Paise.`);
+    // 4. Seed Store Staff User
+    const staffPhone = '9876599999';
+    let staff = await User_1.default.findOne({ phone: staffPhone });
+    if (!staff) {
+        staff = await User_1.default.create({
+            phone: staffPhone,
+            name: 'Store Manager Selvam',
+            role: 'store_staff',
+            isApproved: true,
+            isBlocked: false,
+            language: 'en',
+        });
+        logger_1.default.info(`✅ Created Store Staff user with phone: ${staffPhone}`);
+    }
+    else {
+        staff.role = 'store_staff';
+        await staff.save();
+    }
+    // 5. Seed Recycler Buyers for Automatic Material Routing
+    const Buyer = (await Promise.resolve().then(() => __importStar(require('../models/Buyer')))).default;
+    const defaultBuyers = [
+        {
+            name: 'Chennai Metal Recyclers Ltd',
+            acceptedMaterials: ['iron', 'other'],
+            contact: { phone: '9444011111', person: 'Murugesan' },
+            location: 'Ambattur Industrial Estate, Chennai',
+        },
+        {
+            name: 'Tamil Nadu Plastic Processing Plant',
+            acceptedMaterials: ['plastic', 'mixed'],
+            contact: { phone: '9444022222', person: 'Kavitha' },
+            location: 'Guindy Industrial Estate, Chennai',
+        },
+        {
+            name: 'Apex Copper Recovery Unit',
+            acceptedMaterials: ['copper_wire'],
+            contact: { phone: '9444033333', person: 'Suresh' },
+            location: 'Sriperumbudur, Tamil Nadu',
+        },
+        {
+            name: 'Eco-Green E-Waste Recyclers',
+            acceptedMaterials: ['ewaste'],
+            contact: { phone: '9444044444', person: 'Venkatesh' },
+            location: 'Maraimalai Nagar, Chennai',
+        },
+        {
+            name: 'VoltPower Battery Safe Recovery',
+            acceptedMaterials: ['battery'],
+            contact: { phone: '9444055555', person: 'Radha' },
+            location: 'Gummidipoondi, Tamil Nadu',
+        },
+        {
+            name: 'South Paper Mill Reclaimers',
+            acceptedMaterials: ['paper'],
+            contact: { phone: '9444066666', person: 'Manikandan' },
+            location: 'Madhavaram, Chennai',
+        },
+    ];
+    for (const b of defaultBuyers) {
+        await Buyer.findOneAndUpdate({ name: b.name }, { ...b, isActive: true }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    }
+    logger_1.default.info(`✅ Seeded ${defaultBuyers.length} specialist recycling buyers.`);
     await mongoose_1.default.disconnect();
     logger_1.default.info('🎉 Seeding completed successfully and database disconnected!\n');
 };

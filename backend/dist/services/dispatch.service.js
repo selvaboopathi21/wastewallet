@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -127,6 +160,13 @@ const atomicAcceptPickup = async (pickupId, collectorId) => {
         throw new ApiError_1.default(409, 'Could not accept this pickup. The offer may have expired or was accepted by another collector.');
     }
     logger_1.default.info(`🤝 Collector ${collectorId} atomically accepted pickup ${pickupId}!`);
+    try {
+        const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
+        sockets.emitStatusChanged(pickupId, { newStatus: 'accepted', collectorId });
+    }
+    catch (err) {
+        logger_1.default.warn(`Could not emit Socket event pickup.status.changed: ${err.message}`);
+    }
     return acceptedPickup;
 };
 exports.atomicAcceptPickup = atomicAcceptPickup;
@@ -162,9 +202,17 @@ const transitionPickupStatus = async (pickupId, collectorId, newStatus) => {
     if (!(0, constants_1.isValidStatusTransition)(pickup.status, newStatus)) {
         throw new ApiError_1.default(400, `Invalid status transition: cannot change from "${pickup.status}" to "${newStatus}"`);
     }
+    const oldStatus = pickup.status;
     pickup.status = newStatus;
     await pickup.save();
-    logger_1.default.info(`Status transition for pickup ${pickupId}: ${pickup.status} ➔ ${newStatus}`);
+    logger_1.default.info(`Status transition for pickup ${pickupId}: ${oldStatus} ➔ ${newStatus}`);
+    try {
+        const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
+        sockets.emitStatusChanged(pickupId, { newStatus, previousStatus: oldStatus });
+    }
+    catch (err) {
+        logger_1.default.warn(`Could not emit Socket event pickup.status.changed: ${err.message}`);
+    }
     return pickup;
 };
 exports.transitionPickupStatus = transitionPickupStatus;

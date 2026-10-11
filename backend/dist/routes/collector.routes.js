@@ -26,6 +26,8 @@ router.post('/pickups/:id/decline', collector_controller_1.declinePickupOffer);
 router.patch('/pickups/:id/status', collector_controller_1.updatePickupStatus);
 // Enter on-site weights (Separate or Mixed mode)
 router.post('/pickups/:id/weights', collector_controller_1.recordWeights);
+// Respond to "See separate price" request (Accept or Decline with reason)
+router.post('/pickups/:id/respond-separate', collector_controller_1.respondSeparatePrice);
 // Request 6-digit confirmation OTP to be sent to customer
 router.post('/pickups/:id/request-otp', collector_controller_1.requestConfirmationOtp);
 // Record cash payment

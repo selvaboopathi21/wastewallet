@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.confirmPickupOtp = exports.getMyPickups = exports.getPickup = exports.createPickup = void 0;
+exports.requestSeparatePrice = exports.confirmPickupOtp = exports.getMyPickups = exports.getPickup = exports.createPickup = void 0;
 const pickup_service_1 = __importDefault(require("../services/pickup.service"));
 const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
@@ -105,9 +105,22 @@ exports.confirmPickupOtp = (0, asyncHandler_1.default)(async (req, res) => {
         data: { pickup: confirmedPickup },
     });
 });
+// POST /api/v1/pickups/:id/request-separate (Customer requests separate price breakdown)
+exports.requestSeparatePrice = (0, asyncHandler_1.default)(async (req, res) => {
+    const customerId = req.user._id.toString();
+    const { id } = req.params;
+    const pricingService = (await Promise.resolve().then(() => __importStar(require('../services/pricing.service')))).default;
+    const updatedPickup = await pricingService.requestSeparatePrice(id, customerId);
+    res.status(200).json({
+        success: true,
+        message: 'Separate price request sent to collector',
+        data: { pickup: updatedPickup },
+    });
+});
 exports.default = {
     createPickup: exports.createPickup,
     getPickup: exports.getPickup,
     getMyPickups: exports.getMyPickups,
     confirmPickupOtp: exports.confirmPickupOtp,
+    requestSeparatePrice: exports.requestSeparatePrice,
 };

@@ -72,8 +72,13 @@ const createPickupRequest = async ({ customerId, address, coordinates, preferred
             photoUrls.push(url);
         }
     }
-    // 4. Default pricing mode based on customer preference
-    const initialPricingMode = customerPricingPreference === 'quick_mixed' ? 'mixed' : 'separate';
+    // 4. Normalize and map customer pricing preference
+    let normalizedPref = customerPricingPreference || 'none';
+    if (normalizedPref === 'separate')
+        normalizedPref = 'best_price_separate';
+    if (normalizedPref === 'mixed')
+        normalizedPref = 'quick_mixed';
+    const initialPricingMode = normalizedPref === 'quick_mixed' ? 'mixed' : 'separate';
     // 5. Create Pickup Request in MongoDB
     const pickup = await PickupRequest_1.default.create({
         customerId,
@@ -85,7 +90,7 @@ const createPickupRequest = async ({ customerId, address, coordinates, preferred
         },
         photos: photoUrls,
         preferredTime,
-        customerPricingPreference,
+        customerPricingPreference: normalizedPref,
         pricingMode: initialPricingMode,
         status: 'pending',
         offeredTo: [],

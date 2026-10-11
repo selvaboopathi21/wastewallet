@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.finishPickup = exports.recordCashPayment = exports.requestConfirmationOtp = exports.recordWeights = exports.getActiveJobs = exports.updatePickupStatus = exports.declinePickupOffer = exports.acceptPickupOffer = exports.getMyOffers = exports.toggleOnlineStatus = void 0;
+exports.respondSeparatePrice = exports.finishPickup = exports.recordCashPayment = exports.requestConfirmationOtp = exports.recordWeights = exports.getActiveJobs = exports.updatePickupStatus = exports.declinePickupOffer = exports.acceptPickupOffer = exports.getMyOffers = exports.toggleOnlineStatus = void 0;
 const dispatch_service_1 = __importDefault(require("../services/dispatch.service"));
 const PickupRequest_1 = __importDefault(require("../models/PickupRequest"));
 const User_1 = __importDefault(require("../models/User"));
@@ -184,6 +184,19 @@ exports.finishPickup = (0, asyncHandler_1.default)(async (req, res) => {
         data: { pickup: completedPickup },
     });
 });
+// POST /api/v1/collector/pickups/:id/respond-separate (Collector accepts/declines separate price request)
+exports.respondSeparatePrice = (0, asyncHandler_1.default)(async (req, res) => {
+    const collectorId = req.user._id.toString();
+    const { id } = req.params;
+    const { action, declineReason } = req.body;
+    const pricingService = (await Promise.resolve().then(() => __importStar(require('../services/pricing.service')))).default;
+    const updatedPickup = await pricingService.respondSeparatePrice(id, collectorId, action, declineReason);
+    res.status(200).json({
+        success: true,
+        message: `Separate price request ${action}ed successfully`,
+        data: { pickup: updatedPickup },
+    });
+});
 exports.default = {
     toggleOnlineStatus: exports.toggleOnlineStatus,
     getMyOffers: exports.getMyOffers,
@@ -195,4 +208,5 @@ exports.default = {
     requestConfirmationOtp: exports.requestConfirmationOtp,
     recordCashPayment: exports.recordCashPayment,
     finishPickup: exports.finishPickup,
+    respondSeparatePrice: exports.respondSeparatePrice,
 };

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.setRate = exports.getRates = exports.updateZoneStatus = exports.createZone = exports.getZones = void 0;
+exports.blockUser = exports.approveCollector = exports.getFraudAlertsList = exports.getDashboardReports = exports.setRate = exports.getRates = exports.updateZoneStatus = exports.createZone = exports.getZones = void 0;
 const admin_service_1 = __importDefault(require("../services/admin.service"));
 const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
 // GET /api/v1/zones (Public)
@@ -78,10 +78,54 @@ exports.setRate = (0, asyncHandler_1.default)(async (req, res) => {
         },
     });
 });
+// GET /api/v1/admin/reports (Admin Dashboard Summary)
+exports.getDashboardReports = (0, asyncHandler_1.default)(async (req, res) => {
+    const reports = await admin_service_1.default.getAdminReports();
+    res.status(200).json({
+        success: true,
+        message: 'Admin dashboard reports retrieved successfully',
+        data: reports,
+    });
+});
+// GET /api/v1/admin/fraud-alerts (Fraud & Anomaly Alerts)
+exports.getFraudAlertsList = (0, asyncHandler_1.default)(async (req, res) => {
+    const alerts = await admin_service_1.default.getFraudAlerts();
+    res.status(200).json({
+        success: true,
+        message: `Retrieved ${alerts.length} active fraud alerts`,
+        data: { alerts },
+    });
+});
+// PATCH /api/v1/admin/collectors/:id/approve (Admin approves/revokes collector)
+exports.approveCollector = (0, asyncHandler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const { isApproved } = req.body;
+    const collector = await admin_service_1.default.updateCollectorApproval(id, Boolean(isApproved));
+    res.status(200).json({
+        success: true,
+        message: `Collector ${collector.name || collector.phone} approval updated to ${isApproved}`,
+        data: { collector },
+    });
+});
+// PATCH /api/v1/admin/users/:id/block (Admin blocks/unblocks user)
+exports.blockUser = (0, asyncHandler_1.default)(async (req, res) => {
+    const { id } = req.params;
+    const { isBlocked } = req.body;
+    const user = await admin_service_1.default.updateUserBlockStatus(id, Boolean(isBlocked));
+    res.status(200).json({
+        success: true,
+        message: `User ${user.name || user.phone} blocked status updated to ${isBlocked}`,
+        data: { user },
+    });
+});
 exports.default = {
     getZones: exports.getZones,
     createZone: exports.createZone,
     updateZoneStatus: exports.updateZoneStatus,
     getRates: exports.getRates,
     setRate: exports.setRate,
+    getDashboardReports: exports.getDashboardReports,
+    getFraudAlertsList: exports.getFraudAlertsList,
+    approveCollector: exports.approveCollector,
+    blockUser: exports.blockUser,
 };

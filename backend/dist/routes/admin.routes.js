@@ -17,4 +17,8 @@ router.get('/zones', admin_controller_1.getZones);
 router.post('/admin/zones', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.createZone);
 router.patch('/admin/zones/:id/status', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.updateZoneStatus);
 router.post('/admin/rates', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.setRate);
+router.get('/admin/reports', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.getDashboardReports);
+router.get('/admin/fraud-alerts', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.getFraudAlertsList);
+router.patch('/admin/collectors/:id/approve', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.approveCollector);
+router.patch('/admin/users/:id/block', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), admin_controller_1.blockUser);
 exports.default = router;

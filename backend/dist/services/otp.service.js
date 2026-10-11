@@ -27,6 +27,7 @@ const generateAndSaveOtp = async (phone) => {
     return {
         phone,
         expiresAt,
+        otp: env_1.default.nodeEnv !== 'production' ? plainOtp : undefined,
     };
 };
 exports.generateAndSaveOtp = generateAndSaveOtp;

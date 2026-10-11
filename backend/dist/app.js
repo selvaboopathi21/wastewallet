@@ -19,7 +19,10 @@ exports.app.use((0, helmet_1.default)());
 const allowedOrigins = [env_1.default.clientUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
 exports.app.use((0, cors_1.default)({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        if (!origin ||
+            allowedOrigins.includes(origin) ||
+            env_1.default.clientUrl === '*' ||
+            origin.endsWith('.vercel.app')) {
             return callback(null, true);
         }
         return callback(new Error('Blocked by CORS policy'));
@@ -29,7 +32,16 @@ exports.app.use((0, cors_1.default)({
 // 3. Body parsers
 exports.app.use(express_1.default.json());
 exports.app.use(express_1.default.urlencoded({ extended: true }));
-// 4. Health Check Routes
+// 4. Health Check & Root Welcome Routes
+exports.app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'WasteWallet Backend API is running successfully on Render!',
+        version: '1.0.0',
+        healthCheck: '/health',
+        apiDocs: '/api/v1',
+    });
+});
 exports.app.get('/health', (req, res) => {
     const dbStatus = mongoose_1.default.connection.readyState === 1 ? 'connected' : 'disconnected';
     res.status(200).json({
