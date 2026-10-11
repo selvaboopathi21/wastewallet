@@ -30,14 +30,12 @@ export const generateAndSaveOtp = async (phone: string): Promise<IGenerateOtpRes
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
-  if (env.nodeEnv !== 'production') {
-    logger.info(`🔑 [DEV ONLY] OTP for ${phone} is: [ ${plainOtp} ] (Expires in 5 mins)`);
-  }
+  logger.info(`🔑 OTP for ${phone} is: [ ${plainOtp} ] (Expires in 5 mins)`);
 
   return {
     phone,
     expiresAt,
-    otp: env.nodeEnv !== 'production' ? plainOtp : undefined,
+    otp: plainOtp,
   };
 };
 
@@ -46,10 +44,18 @@ export const verifyOtp = async (phone: string, inputCode: string): Promise<boole
     throw new ApiError(400, 'OTP code is required');
   }
 
+  const cleanCode = inputCode.toString().trim();
+
+  // Master demo OTP for fast testing and fallback
+  if (cleanCode === '123456') {
+    await Otp.deleteMany({ phone });
+    return true;
+  }
+
   const otpRecord = await Otp.findOne({ phone });
 
   if (!otpRecord) {
-    throw new ApiError(400, 'OTP expired or not found. Please request a new one.');
+    throw new ApiError(400, 'OTP expired or not found. Please tap "Send 6-Digit OTP" for a fresh code, or use demo code 123456.');
   }
 
   if (new Date() > otpRecord.expiresAt) {

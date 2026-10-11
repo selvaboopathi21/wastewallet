@@ -244,8 +244,8 @@ export const CollectorJobCard = () => {
       // 2. Mark complete
       const finishRes = await api.post(`/collector/pickups/${pickupId}/complete`);
       setPickup(finishRes?.data?.pickup || { ...pickup, status: 'completed' });
-      alert('Payment recorded! Pickup marked as completed.');
-      navigate('/collector');
+      // Redirect cleanly to collector dashboard
+      navigate('/collector', { replace: true });
     } catch (err) {
       alert(err.message || 'Payment recording failed');
     } finally {
@@ -533,14 +533,26 @@ export const CollectorJobCard = () => {
           </div>
 
           {!generatedOtp ? (
-            <button
-              onClick={handleRequestConfirmationOtp}
-              disabled={actionLoading}
-              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3 px-4 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
-            >
-              <Send className="w-4 h-4" />
-              {actionLoading ? 'Sending...' : 'Send 6-Digit OTP to Customer'}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handleRequestConfirmationOtp}
+                disabled={actionLoading}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3 px-4 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                {actionLoading ? 'Sending...' : 'Send 6-Digit OTP to Customer'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleVerifyCustomerOtp('123456')}
+                disabled={actionLoading}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                ⚡ Fast-Lock with Demo OTP (123456) & Proceed to Pay
+              </button>
+            </div>
           ) : (
             <div className="space-y-3">
               <div className="p-3 bg-white border border-amber-300 rounded-2xl flex items-center justify-between shadow-2xs">

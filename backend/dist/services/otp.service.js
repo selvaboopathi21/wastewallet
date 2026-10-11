@@ -9,7 +9,6 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const Otp_1 = __importDefault(require("../models/Otp"));
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const logger_1 = __importDefault(require("../utils/logger"));
-const env_1 = __importDefault(require("../config/env"));
 const constants_1 = require("../utils/constants");
 const generateAndSaveOtp = async (phone) => {
     const plainOtp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -21,13 +20,11 @@ const generateAndSaveOtp = async (phone) => {
         attempts: 0,
         expiresAt,
     }, { upsert: true, new: true, setDefaultsOnInsert: true });
-    if (env_1.default.nodeEnv !== 'production') {
-        logger_1.default.info(`🔑 [DEV ONLY] OTP for ${phone} is: [ ${plainOtp} ] (Expires in 5 mins)`);
-    }
+    logger_1.default.info(`🔑 OTP for ${phone} is: [ ${plainOtp} ] (Expires in 5 mins)`);
     return {
         phone,
         expiresAt,
-        otp: env_1.default.nodeEnv !== 'production' ? plainOtp : undefined,
+        otp: plainOtp,
     };
 };
 exports.generateAndSaveOtp = generateAndSaveOtp;
@@ -35,9 +32,15 @@ const verifyOtp = async (phone, inputCode) => {
     if (!inputCode) {
         throw new ApiError_1.default(400, 'OTP code is required');
     }
+    const cleanCode = inputCode.toString().trim();
+    // Master demo OTP for fast testing and fallback
+    if (cleanCode === '123456') {
+        await Otp_1.default.deleteMany({ phone });
+        return true;
+    }
     const otpRecord = await Otp_1.default.findOne({ phone });
     if (!otpRecord) {
-        throw new ApiError_1.default(400, 'OTP expired or not found. Please request a new one.');
+        throw new ApiError_1.default(400, 'OTP expired or not found. Please tap "Send 6-Digit OTP" for a fresh code, or use demo code 123456.');
     }
     if (new Date() > otpRecord.expiresAt) {
         await Otp_1.default.deleteOne({ _id: otpRecord._id });
