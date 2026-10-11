@@ -87,6 +87,9 @@ export const LiveTrackingPage = () => {
 
   useEffect(() => {
     fetchPickupData();
+    // Auto-poll every 2.5 seconds so status transitions always refresh automatically
+    const interval = setInterval(fetchPickupData, 2500);
+    return () => clearInterval(interval);
   }, [pickupId]);
 
   // Socket.io real-time listener setup

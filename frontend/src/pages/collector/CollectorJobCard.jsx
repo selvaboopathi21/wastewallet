@@ -77,6 +77,9 @@ export const CollectorJobCard = () => {
 
   useEffect(() => {
     fetchPickupDetails();
+    // Auto-poll every 2.5 seconds to instantly catch confirmed status without manual page reload
+    const interval = setInterval(fetchPickupDetails, 2500);
+    return () => clearInterval(interval);
   }, [pickupId]);
 
   // Socket.io real-time events
@@ -549,9 +552,10 @@ export const CollectorJobCard = () => {
                   type="button"
                   onClick={() => handleVerifyCustomerOtp(generatedOtp)}
                   disabled={actionLoading}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs cursor-pointer shadow-md flex items-center gap-1.5 transition-all"
                 >
-                  Verify & Lock Now
+                  <CheckCircle2 className="w-4 h-4" />
+                  Verify & Proceed to Pay
                 </button>
               </div>
 
