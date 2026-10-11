@@ -54,6 +54,10 @@ const processCashPayment = async (pickupId, collectorId) => {
     if (!pickup) {
         throw new ApiError_1.default(404, 'Pickup request not found or not assigned to you');
     }
+    if (pickup.status === 'paid' || pickup.status === 'completed') {
+        let payment = await Payment_1.default.findOne({ requestId: pickup._id });
+        return { pickup, payment: payment };
+    }
     if (pickup.status !== 'confirmed') {
         throw new ApiError_1.default(400, `Cannot record payment while status is "${pickup.status}". Customer must confirm with OTP first.`);
     }
@@ -105,6 +109,9 @@ const completePickup = async (pickupId, collectorId) => {
     });
     if (!pickup) {
         throw new ApiError_1.default(404, 'Pickup request not found or not assigned to you');
+    }
+    if (pickup.status === 'completed') {
+        return pickup;
     }
     if (pickup.status !== 'paid') {
         throw new ApiError_1.default(400, `Cannot complete pickup. Current status must be "paid", but is "${pickup.status}".`);

@@ -22,6 +22,11 @@ export const processCashPayment = async (
     throw new ApiError(404, 'Pickup request not found or not assigned to you');
   }
 
+  if (pickup.status === 'paid' || pickup.status === 'completed') {
+    let payment = await Payment.findOne({ requestId: pickup._id });
+    return { pickup, payment: payment as any };
+  }
+
   if (pickup.status !== 'confirmed') {
     throw new ApiError(
       400,
@@ -85,6 +90,10 @@ export const completePickup = async (
 
   if (!pickup) {
     throw new ApiError(404, 'Pickup request not found or not assigned to you');
+  }
+
+  if (pickup.status === 'completed') {
+    return pickup;
   }
 
   if (pickup.status !== 'paid') {

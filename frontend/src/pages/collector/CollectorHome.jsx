@@ -1,6 +1,5 @@
-// CollectorHome: Real-time dashboard for scrap collector partner
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Truck,
   Star,
@@ -288,35 +287,37 @@ export const CollectorHome = () => {
         ) : (
           <div className="space-y-2.5">
             {activeJobs.map((job) => (
-              <div
+              <Link
                 key={job._id}
-                onClick={() => navigate(`/collector/pickups/${job._id}`)}
-                className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 hover:border-emerald-400 transition-all cursor-pointer space-y-2"
+                to={`/collector/pickups/${job._id}`}
+                className="block p-4 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 transition-all cursor-pointer space-y-2.5 no-underline text-left group shadow-2xs"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs font-bold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md uppercase">
+                  <span className="text-2xs font-bold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md uppercase tracking-wider">
                     {job.status.replace('_', ' ')}
                   </span>
-                  <span className="text-2xs font-mono text-slate-400">
+                  <span className="text-2xs font-mono font-bold text-slate-500">
                     #{job._id.slice(-6).toUpperCase()}
                   </span>
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">{job.customerId?.name}</h4>
+                  <h4 className="text-xs font-black text-slate-900 group-hover:text-emerald-900 transition-colors">
+                    {job.customerId?.name || 'Customer'}
+                  </h4>
                   <p className="text-2xs text-slate-600 flex items-center gap-1 mt-0.5 truncate">
-                    <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     {job.address}
                   </p>
                 </div>
 
                 <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-2xs">
-                  <span className="text-slate-500 capitalize">{job.pricingMode} mode</span>
-                  <span className="font-bold text-emerald-700 flex items-center gap-0.5">
+                  <span className="text-slate-500 font-medium capitalize">{job.pricingMode} mode</span>
+                  <span className="font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg">
                     Open Job Card <ArrowRight className="w-3 h-3" />
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
