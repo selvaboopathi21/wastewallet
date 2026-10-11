@@ -166,6 +166,18 @@ export const requestCustomerConfirmationOtp = async (
   const customer: any = pickup.customerId;
   const otpResult = await otpService.generateAndSaveOtp(customer.phone);
 
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitOtpSent(pickup._id.toString(), customer._id.toString(), {
+      pickupId: pickup._id.toString(),
+      phone: customer.phone,
+      otp: otpResult.otp,
+      totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
+    });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pickup.otp.sent: ${err.message}`);
+  }
+
   return {
     phone: customer.phone,
     totalPickupWeightKg: pickup.totalPickupWeightKg,
@@ -176,27 +188,24 @@ export const requestCustomerConfirmationOtp = async (
 };
 
 /**
- * Step 2 of Confirmation: Customer enters 6-digit OTP to lock weight & amount
+ * Step 2 of Confirmation: Customer or Collector enters 6-digit OTP to lock weight & amount
  */
 export const confirmPickupWithOtp = async (
   pickupId: string,
-  customerId: string,
+  userId: string,
   otp: string
 ) => {
-  const pickup = await PickupRequest.findOne({
-    _id: pickupId,
-    customerId: new Types.ObjectId(customerId),
-  });
+  const pickup = await PickupRequest.findById(pickupId).populate('customerId');
 
   if (!pickup) {
-    throw new ApiError(404, 'Pickup request not found for this customer');
+    throw new ApiError(404, 'Pickup request not found');
   }
 
   if (pickup.status !== 'weighed') {
     throw new ApiError(400, `Cannot confirm pickup with current status: "${pickup.status}". Must be "weighed".`);
   }
 
-  const customer = await User.findById(customerId);
+  const customer: any = pickup.customerId;
   if (!customer) {
     throw new ApiError(404, 'Customer account not found');
   }
@@ -213,7 +222,7 @@ export const confirmPickupWithOtp = async (
 
   logger.info(`🔒 Customer confirmed pickup ${pickup._id} with OTP! Amount locked at ₹${(pickup.totalAmountPaise / 100).toFixed(2)}`);
 
-  // Real-Time Socket.io: Notify collector that amount and weight are locked
+  // Real-Time Socket.io: Notify collector and customer that amount and weight are locked
   try {
     const sockets = (await import('../sockets')).default;
     if (pickup.collectorId) {
@@ -225,6 +234,11 @@ export const confirmPickupWithOtp = async (
         customerConfirmed: true,
       });
     }
+    sockets.emitStatusChanged(pickup._id.toString(), {
+      newStatus: 'confirmed',
+      totalAmountPaise: pickup.totalAmountPaise,
+      totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
+    });
   } catch (err: any) {
     logger.warn(`Could not emit Socket event pickup.confirmed: ${err.message}`);
   }

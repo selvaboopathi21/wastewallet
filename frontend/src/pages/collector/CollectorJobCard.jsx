@@ -51,6 +51,7 @@ export const CollectorJobCard = () => {
   });
   const [mixedWeight, setMixedWeight] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
+  const [inputOtp, setInputOtp] = useState('');
 
   // "Customer requested separate price" banner
   const [incomingSeparateRequest, setIncomingSeparateRequest] = useState(false);
@@ -86,24 +87,36 @@ export const CollectorJobCard = () => {
 
     // Customer requested separate price
     const handleSeparateRequested = (data) => {
-      if (data?.requestId === pickupId) {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
         setIncomingSeparateRequest(true);
       }
     };
 
     // Customer confirmed with OTP
     const handlePickupConfirmed = (data) => {
-      if (data?.requestId === pickupId) {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
         setPickup((prev) => (prev ? { ...prev, status: 'confirmed', customerConfirmed: true } : prev));
+      }
+    };
+
+    // Status transition
+    const handleStatusChanged = (data) => {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
+        setPickup((prev) => (prev ? { ...prev, status: data.newStatus } : prev));
       }
     };
 
     socket.on('pricing.separate.requested', handleSeparateRequested);
     socket.on('pickup.confirmed', handlePickupConfirmed);
+    socket.on('pickup.status.changed', handleStatusChanged);
 
     return () => {
       socket.off('pricing.separate.requested', handleSeparateRequested);
       socket.off('pickup.confirmed', handlePickupConfirmed);
+      socket.off('pickup.status.changed', handleStatusChanged);
     };
   }, [socket, pickupId]);
 
@@ -188,12 +201,32 @@ export const CollectorJobCard = () => {
     setActionLoading(true);
     try {
       const res = await api.post(`/collector/pickups/${pickupId}/request-otp`);
-      alert(`OTP sent to customer (${res?.data?.phone})`);
-      if (res?.data?.otp) {
-        setGeneratedOtp(res.data.otp);
+      const otpCode = res?.data?.otp || res?.data?.data?.otp || '';
+      if (otpCode) {
+        setGeneratedOtp(otpCode);
+        setInputOtp(otpCode);
       }
+      alert(`OTP sent to customer (${res?.data?.phone || 'phone'})! Code: ${otpCode}`);
     } catch (err) {
       alert(err.message || 'Failed to send confirmation OTP');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Verify customer OTP directly on collector card
+  const handleVerifyCustomerOtp = async (codeToVerify) => {
+    const code = (codeToVerify || inputOtp || generatedOtp || '').trim();
+    if (!code || code.length !== 6) {
+      return alert('Please enter or select a 6-digit confirmation OTP');
+    }
+    setActionLoading(true);
+    try {
+      await api.post(`/pickups/${pickupId}/confirm-otp`, { otp: code });
+      setPickup((prev) => ({ ...prev, status: 'confirmed', customerConfirmed: true }));
+      alert('Bill amount verified & locked! Please hand over cash.');
+    } catch (err) {
+      alert(err.message || 'OTP verification failed');
     } finally {
       setActionLoading(false);
     }
@@ -496,17 +529,50 @@ export const CollectorJobCard = () => {
             </div>
           </div>
 
-          <button
-            onClick={handleRequestConfirmationOtp}
-            disabled={actionLoading}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-2.5 px-4 rounded-xl text-xs cursor-pointer shadow-xs"
-          >
-            {actionLoading ? 'Sending...' : 'Send 6-Digit OTP to Customer'}
-          </button>
+          {!generatedOtp ? (
+            <button
+              onClick={handleRequestConfirmationOtp}
+              disabled={actionLoading}
+              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3 px-4 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
+            >
+              <Send className="w-4 h-4" />
+              {actionLoading ? 'Sending...' : 'Send 6-Digit OTP to Customer'}
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="p-3 bg-white border border-amber-300 rounded-2xl flex items-center justify-between shadow-2xs">
+                <div>
+                  <span className="text-2xs font-bold text-amber-800 uppercase tracking-wider block">🔑 Generated OTP Code:</span>
+                  <span className="font-mono text-lg font-black text-amber-950 tracking-widest">{generatedOtp}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleVerifyCustomerOtp(generatedOtp)}
+                  disabled={actionLoading}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
+                >
+                  Verify & Lock Now
+                </button>
+              </div>
 
-          {generatedOtp && (
-            <div className="p-2.5 bg-white border border-amber-300 rounded-xl text-center text-xs font-mono font-black text-amber-900">
-              🔑 Dev OTP: [ {generatedOtp} ] (Customer will enter this)
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="Or enter customer OTP"
+                  value={inputOtp}
+                  onChange={(e) => setInputOtp(e.target.value.replace(/\D/g, ''))}
+                  className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-center font-mono font-bold text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleVerifyCustomerOtp()}
+                  disabled={actionLoading}
+                  className="px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           )}
         </div>

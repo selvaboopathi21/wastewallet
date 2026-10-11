@@ -65,8 +65,8 @@ export const CollectorHome = () => {
 
   useEffect(() => {
     fetchCollectorData();
-    // Poll offers every 4 seconds for fast offer pickup
-    const interval = setInterval(fetchCollectorData, 4000);
+    // Poll offers every 2.5 seconds for lightning fast discovery
+    const interval = setInterval(fetchCollectorData, 2500);
     return () => clearInterval(interval);
   }, []);
 
@@ -74,16 +74,27 @@ export const CollectorHome = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleOfferOrStatus = () => {
+    const handlePickupOffered = (eventData) => {
+      if (eventData?.pickup) {
+        setOffers((prev) => {
+          const exists = prev.some((o) => o._id === eventData.pickup._id);
+          if (exists) return prev;
+          return [eventData.pickup, ...prev];
+        });
+      }
       fetchCollectorData();
     };
 
-    socket.on('pickup.offered', handleOfferOrStatus);
-    socket.on('pickup.status.changed', handleOfferOrStatus);
+    const handleStatusChanged = () => {
+      fetchCollectorData();
+    };
+
+    socket.on('pickup.offered', handlePickupOffered);
+    socket.on('pickup.status.changed', handleStatusChanged);
 
     return () => {
-      socket.off('pickup.offered', handleOfferOrStatus);
-      socket.off('pickup.status.changed', handleOfferOrStatus);
+      socket.off('pickup.offered', handlePickupOffered);
+      socket.off('pickup.status.changed', handleStatusChanged);
     };
   }, [socket]);
 

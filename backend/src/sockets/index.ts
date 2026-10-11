@@ -103,7 +103,12 @@ export const emitSeparatePriceDeclined = (pickupId: string, customerId: string, 
  */
 export const emitStatusChanged = (pickupId: string, data: any) => {
   if (!io) return;
-  io.to(`pickup:${pickupId}`).emit('pickup.status.changed', data);
+  const payload = {
+    pickupId: String(pickupId),
+    requestId: String(pickupId),
+    ...data,
+  };
+  io.to(`pickup:${pickupId}`).emit('pickup.status.changed', payload);
   logger.info(`📡 Emitted "pickup.status.changed" for pickup ${pickupId}: ${data.newStatus}`);
 };
 
@@ -112,7 +117,12 @@ export const emitStatusChanged = (pickupId: string, data: any) => {
  */
 export const emitPickupConfirmed = (pickupId: string, collectorId: string, data: any) => {
   if (!io) return;
-  io.to(`pickup:${pickupId}`).to(`user:${collectorId}`).emit('pickup.confirmed', data);
+  const payload = {
+    pickupId: String(pickupId),
+    requestId: String(pickupId),
+    ...data,
+  };
+  io.to(`pickup:${pickupId}`).to(`user:${collectorId}`).emit('pickup.confirmed', payload);
   logger.info(`📡 Emitted "pickup.confirmed" for pickup ${pickupId} to collector ${collectorId}`);
 };
 
@@ -126,6 +136,20 @@ export const emitPickupOffered = (collectorId: string, data: any) => {
   logger.info(`📡 Emitted "pickup.offered" to collector ${collectorId}`);
 };
 
+/**
+ * 8. Emits OTP sent event with code to customer and pickup room
+ */
+export const emitOtpSent = (pickupId: string, customerId: string, data: any) => {
+  if (!io) return;
+  const payload = {
+    pickupId: String(pickupId),
+    requestId: String(pickupId),
+    ...data,
+  };
+  io.to(`pickup:${pickupId}`).to(`user:${customerId}`).emit('pickup.otp.sent', payload);
+  logger.info(`📡 Emitted "pickup.otp.sent" for pickup ${pickupId} to customer ${customerId}`);
+};
+
 export default {
   initSocket,
   getIO,
@@ -136,5 +160,6 @@ export default {
   emitStatusChanged,
   emitPickupConfirmed,
   emitPickupOffered,
+  emitOtpSent,
 };
 

@@ -51,6 +51,7 @@ export const LiveTrackingPage = () => {
 
   // Confirmation OTP state
   const [confirmationOtp, setConfirmationOtp] = useState('');
+  const [devOtp, setDevOtp] = useState('');
   const [confirmingOtp, setConfirmingOtp] = useState(false);
   const [confirmSuccess, setConfirmSuccess] = useState('');
 
@@ -97,14 +98,16 @@ export const LiveTrackingPage = () => {
 
     // 1. Live status changed
     const handleStatusChanged = (data) => {
-      if (data?.requestId === pickupId || data?.pickupId === pickupId) {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
         setPickup((prev) => (prev ? { ...prev, status: data.newStatus } : prev));
       }
     };
 
     // 2. Live weight and amount updated
     const handleWeightUpdated = (data) => {
-      if (data?.pickupId === pickupId || data?.requestId === pickupId) {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
         setLiveWeightKg(data.totalPickupWeightKg || 0);
         setLiveAmountPaise(data.totalAmountPaise || 0);
         if (data.mode) setPricingMode(data.mode);
@@ -115,7 +118,8 @@ export const LiveTrackingPage = () => {
 
     // 3. Collector accepted separate mode
     const handleSeparateAccepted = (data) => {
-      if (data?.requestId === pickupId || data?.pickupId === pickupId) {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
         setPricingMode('separate');
         setSeparateRequestStatus('accepted');
       }
@@ -123,7 +127,8 @@ export const LiveTrackingPage = () => {
 
     // 4. Collector declined separate mode
     const handleSeparateDeclined = (data) => {
-      if (data?.requestId === pickupId || data?.pickupId === pickupId) {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
         setSeparateRequestStatus('declined');
         setDeclineReason(data?.reason || 'Collector prefers flat mixed rate');
       }
@@ -131,8 +136,20 @@ export const LiveTrackingPage = () => {
 
     // 5. Pickup confirmed by OTP
     const handlePickupConfirmed = (data) => {
-      if (data?.requestId === pickupId || data?.pickupId === pickupId) {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
         setPickup((prev) => (prev ? { ...prev, status: 'confirmed', customerConfirmed: true } : prev));
+      }
+    };
+
+    // 6. Live OTP received
+    const handleOtpSent = (data) => {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
+        if (data?.otp) {
+          setDevOtp(String(data.otp));
+          setConfirmationOtp(String(data.otp));
+        }
       }
     };
 
@@ -141,6 +158,7 @@ export const LiveTrackingPage = () => {
     socket.on('pricing.separate.accepted', handleSeparateAccepted);
     socket.on('pricing.separate.declined', handleSeparateDeclined);
     socket.on('pickup.confirmed', handlePickupConfirmed);
+    socket.on('pickup.otp.sent', handleOtpSent);
 
     return () => {
       socket.off('pickup.status.changed', handleStatusChanged);
@@ -148,6 +166,7 @@ export const LiveTrackingPage = () => {
       socket.off('pricing.separate.accepted', handleSeparateAccepted);
       socket.off('pricing.separate.declined', handleSeparateDeclined);
       socket.off('pickup.confirmed', handlePickupConfirmed);
+      socket.off('pickup.otp.sent', handleOtpSent);
     };
   }, [socket, pickupId]);
 
@@ -422,6 +441,22 @@ export const LiveTrackingPage = () => {
             </div>
           </div>
 
+          {devOtp && (
+            <div className="bg-white border-2 border-amber-400 rounded-2xl p-3 flex items-center justify-between shadow-2xs">
+              <div>
+                <span className="text-2xs font-bold text-amber-800 uppercase tracking-wider block">🔑 Your Confirmation Code</span>
+                <span className="font-mono text-lg font-black text-amber-950 tracking-widest">{devOtp}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmationOtp(devOtp)}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs transition-all"
+              >
+                Auto-Fill Code
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleConfirmOtp} className="space-y-2">
             <div className="relative">
               <input
@@ -445,7 +480,7 @@ export const LiveTrackingPage = () => {
           </form>
 
           <p className="text-2xs text-amber-700 text-center font-semibold">
-            💡 Check your SMS or terminal log for the confirmation OTP sent to your phone.
+            💡 The 6-digit verification code is shown above. Tap "Lock Amount & Confirm Bill" to approve payout.
           </p>
         </div>
       )}

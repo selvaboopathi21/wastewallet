@@ -42,7 +42,6 @@ const mongoose_1 = require("mongoose");
 const PickupRequest_1 = __importDefault(require("../models/PickupRequest"));
 const PickupItem_1 = __importDefault(require("../models/PickupItem"));
 const RateCard_1 = __importDefault(require("../models/RateCard"));
-const User_1 = __importDefault(require("../models/User"));
 const otp_service_1 = __importDefault(require("./otp.service"));
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const logger_1 = __importDefault(require("../utils/logger"));
@@ -157,6 +156,18 @@ const requestCustomerConfirmationOtp = async (pickupId, collectorId) => {
     }
     const customer = pickup.customerId;
     const otpResult = await otp_service_1.default.generateAndSaveOtp(customer.phone);
+    try {
+        const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
+        sockets.emitOtpSent(pickup._id.toString(), customer._id.toString(), {
+            pickupId: pickup._id.toString(),
+            phone: customer.phone,
+            otp: otpResult.otp,
+            totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
+        });
+    }
+    catch (err) {
+        logger_1.default.warn(`Could not emit Socket event pickup.otp.sent: ${err.message}`);
+    }
     return {
         phone: customer.phone,
         totalPickupWeightKg: pickup.totalPickupWeightKg,
@@ -167,20 +178,17 @@ const requestCustomerConfirmationOtp = async (pickupId, collectorId) => {
 };
 exports.requestCustomerConfirmationOtp = requestCustomerConfirmationOtp;
 /**
- * Step 2 of Confirmation: Customer enters 6-digit OTP to lock weight & amount
+ * Step 2 of Confirmation: Customer or Collector enters 6-digit OTP to lock weight & amount
  */
-const confirmPickupWithOtp = async (pickupId, customerId, otp) => {
-    const pickup = await PickupRequest_1.default.findOne({
-        _id: pickupId,
-        customerId: new mongoose_1.Types.ObjectId(customerId),
-    });
+const confirmPickupWithOtp = async (pickupId, userId, otp) => {
+    const pickup = await PickupRequest_1.default.findById(pickupId).populate('customerId');
     if (!pickup) {
-        throw new ApiError_1.default(404, 'Pickup request not found for this customer');
+        throw new ApiError_1.default(404, 'Pickup request not found');
     }
     if (pickup.status !== 'weighed') {
         throw new ApiError_1.default(400, `Cannot confirm pickup with current status: "${pickup.status}". Must be "weighed".`);
     }
-    const customer = await User_1.default.findById(customerId);
+    const customer = pickup.customerId;
     if (!customer) {
         throw new ApiError_1.default(404, 'Customer account not found');
     }
@@ -192,7 +200,7 @@ const confirmPickupWithOtp = async (pickupId, customerId, otp) => {
     pickup.otpVerifiedAt = new Date();
     await pickup.save();
     logger_1.default.info(`🔒 Customer confirmed pickup ${pickup._id} with OTP! Amount locked at ₹${(pickup.totalAmountPaise / 100).toFixed(2)}`);
-    // Real-Time Socket.io: Notify collector that amount and weight are locked
+    // Real-Time Socket.io: Notify collector and customer that amount and weight are locked
     try {
         const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
         if (pickup.collectorId) {
@@ -204,6 +212,11 @@ const confirmPickupWithOtp = async (pickupId, customerId, otp) => {
                 customerConfirmed: true,
             });
         }
+        sockets.emitStatusChanged(pickup._id.toString(), {
+            newStatus: 'confirmed',
+            totalAmountPaise: pickup.totalAmountPaise,
+            totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
+        });
     }
     catch (err) {
         logger_1.default.warn(`Could not emit Socket event pickup.confirmed: ${err.message}`);
