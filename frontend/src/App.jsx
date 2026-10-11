@@ -22,6 +22,8 @@ import CollectorHome from './pages/collector/CollectorHome';
 import CollectorJobCard from './pages/collector/CollectorJobCard';
 import CollectorBatchPage from './pages/collector/CollectorBatchPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminRatesPage from './pages/admin/AdminRatesPage';
+import AdminFraudPage from './pages/admin/AdminFraudPage';
 import StoreIntakePage from './pages/store/StoreIntakePage';
 import StoreSortingPage from './pages/store/StoreSortingPage';
 
@@ -91,9 +93,10 @@ export const App = () => {
             <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
               <Route element={<AdminLayout />}>
                 <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/rates" element={<AdminDashboard />} />
-                <Route path="/admin/zones" element={<AdminDashboard />} />
+                <Route path="/admin/rates" element={<AdminRatesPage />} />
+                <Route path="/admin/zones" element={<AdminRatesPage />} />
                 <Route path="/admin/reports" element={<AdminDashboard />} />
+                <Route path="/admin/fraud-alerts" element={<AdminFraudPage />} />
               </Route>
             </Route>
 
