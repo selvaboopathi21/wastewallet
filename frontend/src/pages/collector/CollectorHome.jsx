@@ -44,8 +44,9 @@ export const CollectorHome = () => {
         api.get('/collector/active-jobs'),
       ]);
 
-      setOffers(offersRes?.data?.offers || []);
-      const jobs = jobsRes?.data?.activeJobs || [];
+      const rawOffers = offersRes?.data?.offers || offersRes?.offers || [];
+      setOffers(rawOffers);
+      const jobs = jobsRes?.data?.activeJobs || jobsRes?.activeJobs || [];
       setActiveJobs(jobs);
 
       // Compute simple stats from jobs
@@ -64,8 +65,8 @@ export const CollectorHome = () => {
 
   useEffect(() => {
     fetchCollectorData();
-    // Poll offers every 8 seconds
-    const interval = setInterval(fetchCollectorData, 8000);
+    // Poll offers every 4 seconds for fast offer pickup
+    const interval = setInterval(fetchCollectorData, 4000);
     return () => clearInterval(interval);
   }, []);
 

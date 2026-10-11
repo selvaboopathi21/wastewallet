@@ -116,6 +116,16 @@ export const emitPickupConfirmed = (pickupId: string, collectorId: string, data:
   logger.info(`📡 Emitted "pickup.confirmed" for pickup ${pickupId} to collector ${collectorId}`);
 };
 
+/**
+ * 7. Emits pickup offer to assigned collector and all active collectors
+ */
+export const emitPickupOffered = (collectorId: string, data: any) => {
+  if (!io) return;
+  io.to(`user:${collectorId}`).emit('pickup.offered', data);
+  io.emit('pickup.offered', data);
+  logger.info(`📡 Emitted "pickup.offered" to collector ${collectorId}`);
+};
+
 export default {
   initSocket,
   getIO,
@@ -125,4 +135,6 @@ export default {
   emitSeparatePriceDeclined,
   emitStatusChanged,
   emitPickupConfirmed,
+  emitPickupOffered,
 };
+

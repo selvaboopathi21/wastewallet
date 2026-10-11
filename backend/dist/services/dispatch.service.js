@@ -134,6 +134,16 @@ const dispatchPickupRequest = async (pickupId) => {
     pickup.offeredTo.push(bestCandidate._id);
     await pickup.save();
     logger_1.default.info(`📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (Expires in 60s)`);
+    try {
+        const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
+        sockets.emitPickupOffered(bestCandidate._id.toString(), {
+            pickupId: pickup._id.toString(),
+            pickup,
+        });
+    }
+    catch (err) {
+        logger_1.default.warn(`Could not emit Socket event pickup.offered: ${err.message}`);
+    }
     return pickup;
 };
 exports.dispatchPickupRequest = dispatchPickupRequest;

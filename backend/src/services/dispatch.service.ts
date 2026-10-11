@@ -122,6 +122,16 @@ export const dispatchPickupRequest = async (
     `📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (Expires in 60s)`
   );
 
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitPickupOffered(bestCandidate._id.toString(), {
+      pickupId: pickup._id.toString(),
+      pickup,
+    });
+  } catch (err: any) {
+    logger.warn(`Could not emit Socket event pickup.offered: ${err.message}`);
+  }
+
   return pickup;
 };
 

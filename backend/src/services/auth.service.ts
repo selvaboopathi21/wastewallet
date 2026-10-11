@@ -1,6 +1,7 @@
 // Authentication Service in TypeScript
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
+import Zone from '../models/Zone';
 import otpService from './otp.service';
 import ApiError from '../utils/ApiError';
 import env from '../config/env';
@@ -60,15 +61,40 @@ export const verifyOtpAndLogin = async ({
 
   if (!user) {
     const userRole = role && Object.values(ROLES).includes(role) ? role : 'customer';
+    let defaultZoneId = null;
+
+    if (userRole === 'collector') {
+      const activeZone = await Zone.findOne({ isActive: true });
+      if (activeZone) defaultZoneId = activeZone._id;
+    }
 
     user = await User.create({
       phone,
-      name: name || '',
+      name: name || (userRole === 'collector' ? 'Kaalaankadai Partner' : ''),
       role: userRole,
       language: language || 'en',
-      isApproved: userRole === 'collector' ? false : true,
+      isApproved: true,
+      isOnline: true,
+      zoneId: defaultZoneId,
     });
     isNewUser = true;
+  } else if (user.role === 'collector') {
+    // If existing collector is missing approval or zone, auto-activate
+    let modified = false;
+    if (!user.isApproved) {
+      user.isApproved = true;
+      modified = true;
+    }
+    if (!user.zoneId) {
+      const activeZone = await Zone.findOne({ isActive: true });
+      if (activeZone) {
+        user.zoneId = activeZone._id;
+        modified = true;
+      }
+    }
+    if (modified) {
+      await user.save();
+    }
   }
 
   if (user.isBlocked) {

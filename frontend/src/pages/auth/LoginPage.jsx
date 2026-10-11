@@ -44,6 +44,26 @@ export const LoginPage = () => {
     }
   };
 
+  // 1-Click Fast Demo Login
+  const handleQuickDemo = async (demoRole, demoPhone) => {
+    setRole(demoRole);
+    setPhone(demoPhone);
+    setError('');
+    setLoading(true);
+    try {
+      const res = await requestOtp(demoPhone);
+      setInfoMessage(res?.message || 'Demo OTP sent!');
+      const receivedOtp = res?.data?.otp || '123456';
+      setDevOtp(receivedOtp);
+      setOtp(receivedOtp);
+      setStep('otp');
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Step 2: Verify OTP
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
@@ -166,10 +186,48 @@ export const LoginPage = () => {
                 <ArrowRight className="w-4 h-4" />
               </button>
 
-              <div className="pt-2 text-center">
-                <p className="text-xs text-slate-400">
-                  Demo Numbers: Customer: <span className="font-mono text-slate-600">9876543210</span> | Collector: <span className="font-mono text-slate-600">9876500001</span> | Admin: <span className="font-mono text-slate-600">9999999999</span>
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <p className="text-2xs font-bold text-slate-500 uppercase tracking-wider text-center">
+                  ⚡ 1-Click Fast Demo Accounts
                 </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickDemo('customer', '9876543210')}
+                    className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-200 rounded-xl text-left transition-all cursor-pointer shadow-2xs"
+                  >
+                    <div className="text-xs font-black">👤 Customer</div>
+                    <div className="text-2xs text-emerald-700 font-medium">Ravi (Anna Nagar)</div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickDemo('collector', '9876500001')}
+                    className="p-2.5 bg-teal-50 hover:bg-teal-100 text-teal-950 border border-teal-200 rounded-xl text-left transition-all cursor-pointer shadow-2xs"
+                  >
+                    <div className="text-xs font-black">🚚 Collector</div>
+                    <div className="text-2xs text-teal-700 font-medium">Murugan (Chennai Central)</div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickDemo('store_staff', '9876500002')}
+                    className="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-950 border border-blue-200 rounded-xl text-left transition-all cursor-pointer shadow-2xs"
+                  >
+                    <div className="text-xs font-black">🏬 Store Staff</div>
+                    <div className="text-2xs text-blue-700 font-medium">Warehouse Staff</div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickDemo('admin', '9999999999')}
+                    className="p-2.5 bg-purple-50 hover:bg-purple-100 text-purple-950 border border-purple-200 rounded-xl text-left transition-all cursor-pointer shadow-2xs"
+                  >
+                    <div className="text-xs font-black">👑 Admin</div>
+                    <div className="text-2xs text-purple-700 font-medium">Lakshmi (Ops)</div>
+                  </button>
+                </div>
               </div>
             </form>
           ) : (

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.emitPickupConfirmed = exports.emitStatusChanged = exports.emitSeparatePriceDeclined = exports.emitSeparatePriceAccepted = exports.emitSeparatePriceRequested = exports.emitWeightUpdated = exports.getIO = exports.initSocket = void 0;
+exports.emitPickupOffered = exports.emitPickupConfirmed = exports.emitStatusChanged = exports.emitSeparatePriceDeclined = exports.emitSeparatePriceAccepted = exports.emitSeparatePriceRequested = exports.emitWeightUpdated = exports.getIO = exports.initSocket = void 0;
 const socket_io_1 = require("socket.io");
 const env_1 = __importDefault(require("../config/env"));
 const logger_1 = __importDefault(require("../utils/logger"));
@@ -116,6 +116,17 @@ const emitPickupConfirmed = (pickupId, collectorId, data) => {
     logger_1.default.info(`📡 Emitted "pickup.confirmed" for pickup ${pickupId} to collector ${collectorId}`);
 };
 exports.emitPickupConfirmed = emitPickupConfirmed;
+/**
+ * 7. Emits pickup offer to assigned collector and all active collectors
+ */
+const emitPickupOffered = (collectorId, data) => {
+    if (!io)
+        return;
+    io.to(`user:${collectorId}`).emit('pickup.offered', data);
+    io.emit('pickup.offered', data);
+    logger_1.default.info(`📡 Emitted "pickup.offered" to collector ${collectorId}`);
+};
+exports.emitPickupOffered = emitPickupOffered;
 exports.default = {
     initSocket: exports.initSocket,
     getIO: exports.getIO,
@@ -125,4 +136,5 @@ exports.default = {
     emitSeparatePriceDeclined: exports.emitSeparatePriceDeclined,
     emitStatusChanged: exports.emitStatusChanged,
     emitPickupConfirmed: exports.emitPickupConfirmed,
+    emitPickupOffered: exports.emitPickupOffered,
 };
