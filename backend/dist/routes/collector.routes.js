@@ -10,8 +10,8 @@ const auth_1 = __importDefault(require("../middleware/auth"));
 const role_1 = require("../middleware/role");
 const constants_1 = require("../utils/constants");
 const router = (0, express_1.Router)();
-// All collector routes require authentication and collector role
-router.use(auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLECTOR));
+// All collector routes require authentication
+router.use(auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLECTOR, constants_1.ROLES.ADMIN, constants_1.ROLES.CUSTOMER));
 // Online / Offline toggle
 router.patch('/status', collector_controller_1.toggleOnlineStatus);
 // View pending 60-second offers

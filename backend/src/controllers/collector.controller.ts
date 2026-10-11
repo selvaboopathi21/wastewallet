@@ -104,18 +104,40 @@ export const updatePickupStatus = asyncHandler(async (req: Request, res: Respons
 export const getActiveJobs = asyncHandler(async (req: Request, res: Response) => {
   const collectorId = req.user!._id;
 
-  const activeJobs = await PickupRequest.find({
-    collectorId,
-    status: { $in: ['accepted', 'on_the_way', 'arrived', 'weighed', 'confirmed'] },
-  })
-    .populate('customerId', 'name phone')
-    .populate('zoneId', 'name')
-    .sort({ updatedAt: -1 });
+  const [activeJobs, completedJobs] = await Promise.all([
+    PickupRequest.find({
+      collectorId,
+      status: { $in: ['accepted', 'on_the_way', 'arrived', 'weighed', 'confirmed'] },
+    })
+      .populate('customerId', 'name phone')
+      .populate('zoneId', 'name')
+      .sort({ updatedAt: -1 }),
+
+    PickupRequest.find({
+      collectorId,
+      status: { $in: ['paid', 'completed'] },
+    })
+      .populate('customerId', 'name phone')
+      .populate('zoneId', 'name')
+      .sort({ updatedAt: -1 })
+      .limit(10),
+  ]);
+
+  const totalCashPaise = completedJobs.reduce((acc, j) => acc + (j.totalAmountPaise || 0), 0);
+  const totalWeightKg = completedJobs.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0);
 
   res.status(200).json({
     success: true,
     message: 'Active collector jobs retrieved successfully',
-    data: { activeJobs },
+    data: {
+      activeJobs,
+      completedJobs,
+      stats: {
+        completedToday: completedJobs.length,
+        totalWeightKg,
+        totalCashPaid: totalCashPaise / 100,
+      },
+    },
   });
 });
 

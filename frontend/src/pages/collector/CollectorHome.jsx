@@ -27,6 +27,7 @@ export const CollectorHome = () => {
   const [isOnline, setIsOnline] = useState(user?.isOnline ?? true);
   const [offers, setOffers] = useState([]);
   const [activeJobs, setActiveJobs] = useState([]);
+  const [completedJobs, setCompletedJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [respondingOfferId, setRespondingOfferId] = useState(null);
   const [stats, setStats] = useState({
@@ -48,13 +49,20 @@ export const CollectorHome = () => {
       const jobs = jobsRes?.data?.activeJobs || jobsRes?.activeJobs || [];
       setActiveJobs(jobs);
 
-      // Compute simple stats from jobs
-      const confirmedOrPaid = jobs.filter((j) => ['confirmed', 'paid', 'completed'].includes(j.status));
-      setStats({
-        completedToday: confirmedOrPaid.length,
-        totalWeightKg: confirmedOrPaid.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0),
-        totalCashPaid: confirmedOrPaid.reduce((acc, j) => acc + (j.totalAmountPaise || 0) / 100, 0),
-      });
+      const serverCompleted = jobsRes?.data?.completedJobs || jobsRes?.completedJobs || [];
+      setCompletedJobs(serverCompleted);
+
+      const serverStats = jobsRes?.data?.stats;
+      if (serverStats) {
+        setStats(serverStats);
+      } else {
+        const allCompleted = [...jobs, ...serverCompleted].filter((j) => ['confirmed', 'paid', 'completed'].includes(j.status));
+        setStats({
+          completedToday: allCompleted.length,
+          totalWeightKg: allCompleted.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0),
+          totalCashPaid: allCompleted.reduce((acc, j) => acc + (j.totalAmountPaise || 0) / 100, 0),
+        });
+      }
     } catch (err) {
       console.error('Error fetching collector dashboard data:', err);
     } finally {
@@ -287,13 +295,13 @@ export const CollectorHome = () => {
         ) : (
           <div className="space-y-2.5">
             {activeJobs.map((job) => (
-              <Link
+              <div
                 key={job._id}
-                to={`/collector/pickups/${job._id}`}
-                className="block p-4 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 transition-all cursor-pointer space-y-2.5 no-underline text-left group shadow-2xs"
+                onClick={() => navigate(`/collector/pickups/${job._id}`)}
+                className="block p-4 bg-slate-50 hover:bg-emerald-50/60 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 transition-all cursor-pointer space-y-2.5 text-left group shadow-xs active:scale-[0.99]"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs font-bold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                  <span className="text-2xs font-bold bg-emerald-100 text-emerald-900 px-2.5 py-0.5 rounded-md uppercase tracking-wider">
                     {job.status.replace('_', ' ')}
                   </span>
                   <span className="text-2xs font-mono font-bold text-slate-500">
@@ -313,15 +321,66 @@ export const CollectorHome = () => {
 
                 <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-2xs">
                   <span className="text-slate-500 font-medium capitalize">{job.pricingMode} mode</span>
-                  <span className="font-bold text-emerald-700 group-hover:translate-x-0.5 transition-transform flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                  <Link
+                    to={`/collector/pickups/${job._id}`}
+                    className="font-bold text-emerald-700 flex items-center gap-1 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg no-underline shadow-2xs"
+                  >
                     Open Job Card <ArrowRight className="w-3 h-3" />
-                  </span>
+                  </Link>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Completed Doorstep Pickups Today */}
+      {completedJobs.length > 0 && (
+        <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              Completed Visits Today ({completedJobs.length})
+            </h3>
+            <span className="text-2xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+              Cash Paid
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {completedJobs.map((job) => (
+              <div
+                key={job._id}
+                onClick={() => navigate(`/collector/pickups/${job._id}`)}
+                className="p-3.5 bg-emerald-50/40 hover:bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-between cursor-pointer transition-all text-left"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-slate-900">
+                      {job.customerId?.name || 'Customer'}
+                    </span>
+                    <span className="text-2xs font-mono font-bold text-slate-400">
+                      #{job._id.slice(-6).toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-2xs text-slate-500 truncate max-w-[200px] mt-0.5">
+                    {job.address}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-xs font-black text-emerald-800 block">
+                    ₹{((job.totalAmountPaise || 0) / 100).toFixed(2)}
+                  </span>
+                  <span className="text-2xs font-semibold text-emerald-600 flex items-center justify-end gap-0.5">
+                    <CheckCircle2 className="w-3 h-3" /> Paid & Done
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* End of Day Batch QR Button */}
       <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-sm space-y-3">

@@ -113,17 +113,37 @@ exports.updatePickupStatus = (0, asyncHandler_1.default)(async (req, res) => {
 // GET /api/v1/collector/active-jobs
 exports.getActiveJobs = (0, asyncHandler_1.default)(async (req, res) => {
     const collectorId = req.user._id;
-    const activeJobs = await PickupRequest_1.default.find({
-        collectorId,
-        status: { $in: ['accepted', 'on_the_way', 'arrived', 'weighed', 'confirmed'] },
-    })
-        .populate('customerId', 'name phone')
-        .populate('zoneId', 'name')
-        .sort({ updatedAt: -1 });
+    const [activeJobs, completedJobs] = await Promise.all([
+        PickupRequest_1.default.find({
+            collectorId,
+            status: { $in: ['accepted', 'on_the_way', 'arrived', 'weighed', 'confirmed'] },
+        })
+            .populate('customerId', 'name phone')
+            .populate('zoneId', 'name')
+            .sort({ updatedAt: -1 }),
+        PickupRequest_1.default.find({
+            collectorId,
+            status: { $in: ['paid', 'completed'] },
+        })
+            .populate('customerId', 'name phone')
+            .populate('zoneId', 'name')
+            .sort({ updatedAt: -1 })
+            .limit(10),
+    ]);
+    const totalCashPaise = completedJobs.reduce((acc, j) => acc + (j.totalAmountPaise || 0), 0);
+    const totalWeightKg = completedJobs.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0);
     res.status(200).json({
         success: true,
         message: 'Active collector jobs retrieved successfully',
-        data: { activeJobs },
+        data: {
+            activeJobs,
+            completedJobs,
+            stats: {
+                completedToday: completedJobs.length,
+                totalWeightKg,
+                totalCashPaid: totalCashPaise / 100,
+            },
+        },
     });
 });
 // POST /api/v1/collector/pickups/:id/weights (Enter on-site weights)

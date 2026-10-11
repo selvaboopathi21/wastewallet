@@ -96,11 +96,24 @@ export const completePickup = async (
     return pickup;
   }
 
-  if (pickup.status !== 'paid') {
-    throw new ApiError(400, `Cannot complete pickup. Current status must be "paid", but is "${pickup.status}".`);
+  // If status is confirmed, ensure cash payment record is created
+  if (pickup.status === 'confirmed') {
+    let payment = await Payment.findOne({ requestId: pickup._id });
+    if (!payment) {
+      await Payment.create({
+        requestId: pickup._id,
+        method: 'cash',
+        amountPaise: pickup.totalAmountPaise,
+        status: 'completed',
+        idempotencyKey: `cash_${pickup._id}`,
+        paidAt: new Date(),
+      });
+    }
+  } else if (pickup.status !== 'paid') {
+    throw new ApiError(400, `Cannot complete pickup. Current status must be "confirmed" or "paid", but is "${pickup.status}".`);
   }
 
-  // Update status: paid ➔ completed
+  // Update status: paid/confirmed ➔ completed
   pickup.status = 'completed';
   await pickup.save();
 

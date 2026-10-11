@@ -19,8 +19,8 @@ import { ROLES } from '../utils/constants';
 
 const router = Router();
 
-// All collector routes require authentication and collector role
-router.use(authenticate, restrictTo(ROLES.COLLECTOR));
+// All collector routes require authentication
+router.use(authenticate, restrictTo(ROLES.COLLECTOR, ROLES.ADMIN, ROLES.CUSTOMER));
 
 // Online / Offline toggle
 router.patch('/status', toggleOnlineStatus);

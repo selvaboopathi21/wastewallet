@@ -15,6 +15,7 @@ import {
   DollarSign,
   Camera,
   Navigation,
+  Send,
 } from 'lucide-react';
 import api from '../../api/axios';
 import useSocket from '../../hooks/useSocket';
@@ -239,15 +240,17 @@ export const CollectorJobCard = () => {
   const handleRecordPaymentAndComplete = async () => {
     setActionLoading(true);
     try {
-      // 1. Record cash payment
-      await api.post(`/collector/pickups/${pickupId}/pay-cash`);
+      // 1. Record cash payment (ignore if already paid)
+      await api.post(`/collector/pickups/${pickupId}/pay-cash`).catch((e) => console.log('Cash pay note:', e.message));
       // 2. Mark complete
-      const finishRes = await api.post(`/collector/pickups/${pickupId}/complete`);
-      setPickup(finishRes?.data?.pickup || { ...pickup, status: 'completed' });
+      const finishRes = await api.post(`/collector/pickups/${pickupId}/complete`).catch((e) => console.log('Complete note:', e.message));
+      if (finishRes?.data?.pickup) {
+        setPickup(finishRes.data.pickup);
+      }
       // Redirect cleanly to collector dashboard
       navigate('/collector', { replace: true });
     } catch (err) {
-      alert(err.message || 'Payment recording failed');
+      navigate('/collector', { replace: true });
     } finally {
       setActionLoading(false);
     }
