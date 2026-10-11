@@ -84,9 +84,28 @@ export const receiveBatch = async (
     throw new ApiError(400, 'Valid received weight in kg is required');
   }
 
-  const batch = await Batch.findOne({ qrCode });
+  let batch = await Batch.findOne({ qrCode });
   if (!batch) {
-    throw new ApiError(404, `Batch with QR code "${qrCode}" not found`);
+    // Try case-insensitive or partial match for deposited batches
+    batch = await Batch.findOne({
+      qrCode: { $regex: new RegExp(qrCode.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i') },
+      status: 'deposited',
+    });
+  }
+
+  if (!batch) {
+    const pendingBatches = await Batch.find({ status: 'deposited' }).select('qrCode').limit(3).lean();
+    if (pendingBatches.length > 0) {
+      const examples = pendingBatches.map((b) => b.qrCode).join(', ');
+      throw new ApiError(
+        404,
+        `Batch with QR code "${qrCode}" not found. Did you mean: ${examples}?`
+      );
+    }
+    throw new ApiError(
+      404,
+      `Batch with QR code "${qrCode}" not found. No batches are currently awaiting intake.`
+    );
   }
 
   if (batch.status !== 'deposited') {

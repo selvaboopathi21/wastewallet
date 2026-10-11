@@ -29,9 +29,23 @@ export const StoreIntakePage = () => {
   // Fetch active pending batches
   const fetchBatches = async () => {
     try {
-      const res = await api.get('/batches');
+      const res = await api.get('/batches?view=store');
       const list = res?.data?.data?.batches || res?.data?.batches || [];
       setBatches(list);
+      // Auto-select first pending batch if nothing selected yet
+      const pending = list.filter((b) => ['deposited', 'created'].includes(b.status));
+      if (pending.length > 0) {
+        setSelectedBatch((prev) => {
+          if (!prev) {
+            const first = pending[0];
+            setQrInput(first.qrCode);
+            const weight = first.depositedWeightKg ?? first.totalWeightDepositedKg ?? '';
+            setReceivedWeight(weight ? weight.toString() : '');
+            return first;
+          }
+          return prev;
+        });
+      }
     } catch (err) {
       console.error('Error fetching batches:', err);
     } finally {
@@ -70,6 +84,8 @@ export const StoreIntakePage = () => {
     setError('');
   };
 
+  const pendingBatches = batches.filter((b) => ['deposited', 'created'].includes(b.status));
+
   // Submit batch intake reception
   const handleReceiveBatch = async (e) => {
     e.preventDefault();
@@ -79,6 +95,13 @@ export const StoreIntakePage = () => {
 
     if (!code) {
       return setError('Please enter or select a batch QR code');
+    }
+
+    if (code === 'BATCH' || code === 'BATCH1' || code === 'BATCH-') {
+      const suggestion = pendingBatches[0]?.qrCode || 'BATCH-MV4003YF-6883';
+      return setError(
+        `"${code}" is just a placeholder! Please tap "${suggestion}" below, or click "+ New Test Batch".`
+      );
     }
 
     if (!wt || wt <= 0) {
@@ -134,19 +157,58 @@ export const StoreIntakePage = () => {
         <form onSubmit={handleReceiveBatch} className="space-y-3">
           {/* QR Code Input */}
           <div>
-            <label className="block text-2xs font-bold text-slate-600 uppercase mb-1">
-              Batch QR Code / Identifier
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-2xs font-bold text-slate-600 uppercase">
+                Batch QR Code / Identifier
+              </label>
+              {pendingBatches.length > 0 && (
+                <span className="text-2xs text-emerald-700 font-bold">
+                  {pendingBatches.length} batch(es) awaiting scale
+                </span>
+              )}
+            </div>
             <div className="relative">
               <QrCode className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="e.g. BATCH-MV3IA5CP-9033"
+                placeholder="e.g. BATCH-MV4003YF-6883"
                 value={qrInput}
                 onChange={(e) => setQrInput(e.target.value.toUpperCase())}
                 className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
               />
             </div>
+
+            {/* Quick-tap pills for pending batches */}
+            {pendingBatches.length > 0 ? (
+              <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                <span className="text-2xs text-slate-400 font-bold">Tap to fill:</span>
+                {pendingBatches.map((b) => (
+                  <button
+                    key={b._id}
+                    type="button"
+                    onClick={() => handleSelectBatch(b)}
+                    className={`text-2xs font-mono font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                      qrInput === b.qrCode
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                        : 'bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {b.qrCode} • {b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between text-2xs text-amber-900 mt-2">
+                <span>No active batches awaiting intake.</span>
+                <button
+                  type="button"
+                  onClick={handleGenerateDemoBatch}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer"
+                >
+                  + Generate Test Batch
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Warehouse Gross Scale Weight */}

@@ -99,7 +99,12 @@ exports.getBatch = (0, asyncHandler_1.default)(async (req, res) => {
 // GET /api/v1/batches (List batches)
 exports.listBatches = (0, asyncHandler_1.default)(async (req, res) => {
     const status = req.query.status;
-    const collectorId = req.user.role === 'collector' ? req.user._id.toString() : undefined;
+    const isStoreView = req.query.view === 'store' ||
+        req.query.all === 'true' ||
+        ['store_staff', 'admin'].includes(req.user.role);
+    const collectorId = !isStoreView && req.user.role === 'collector'
+        ? req.user._id.toString()
+        : undefined;
     const batches = await batch_service_1.default.listBatches(collectorId, status);
     res.status(200).json({
         success: true,

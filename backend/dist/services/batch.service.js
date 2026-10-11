@@ -67,9 +67,21 @@ const receiveBatch = async (qrCode, staffId, receivedWeightKg) => {
     if (typeof receivedWeightKg !== 'number' || receivedWeightKg < 0) {
         throw new ApiError_1.default(400, 'Valid received weight in kg is required');
     }
-    const batch = await Batch_1.default.findOne({ qrCode });
+    let batch = await Batch_1.default.findOne({ qrCode });
     if (!batch) {
-        throw new ApiError_1.default(404, `Batch with QR code "${qrCode}" not found`);
+        // Try case-insensitive or partial match for deposited batches
+        batch = await Batch_1.default.findOne({
+            qrCode: { $regex: new RegExp(qrCode.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i') },
+            status: 'deposited',
+        });
+    }
+    if (!batch) {
+        const pendingBatches = await Batch_1.default.find({ status: 'deposited' }).select('qrCode').limit(3).lean();
+        if (pendingBatches.length > 0) {
+            const examples = pendingBatches.map((b) => b.qrCode).join(', ');
+            throw new ApiError_1.default(404, `Batch with QR code "${qrCode}" not found. Did you mean: ${examples}?`);
+        }
+        throw new ApiError_1.default(404, `Batch with QR code "${qrCode}" not found. No batches are currently awaiting intake.`);
     }
     if (batch.status !== 'deposited') {
         throw new ApiError_1.default(400, `Batch cannot be received. Current status is "${batch.status}".`);

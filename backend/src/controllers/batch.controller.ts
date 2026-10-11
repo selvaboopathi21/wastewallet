@@ -76,7 +76,14 @@ export const getBatch = asyncHandler(async (req: Request, res: Response) => {
 // GET /api/v1/batches (List batches)
 export const listBatches = asyncHandler(async (req: Request, res: Response) => {
   const status = req.query.status as string | undefined;
-  const collectorId = req.user!.role === 'collector' ? req.user!._id.toString() : undefined;
+  const isStoreView =
+    req.query.view === 'store' ||
+    req.query.all === 'true' ||
+    ['store_staff', 'admin'].includes(req.user!.role);
+  const collectorId =
+    !isStoreView && req.user!.role === 'collector'
+      ? req.user!._id.toString()
+      : undefined;
 
   const batches = await batchService.listBatches(collectorId, status);
 
