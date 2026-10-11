@@ -191,7 +191,7 @@ export const StoreSortingPage = () => {
           >
             {batches.map((b) => (
               <option key={b._id} value={b._id}>
-                {b.qrCode} ({b.totalWeightReceivedKg || b.totalWeightDepositedKg} kg)
+                {b.qrCode} ({b.receivedWeightKg ?? b.totalWeightReceivedKg ?? b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg)
               </option>
             ))}
           </select>
@@ -200,10 +200,10 @@ export const StoreSortingPage = () => {
         {batchDetails && (
           <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-2xs">
             <span className="text-slate-500">
-              Warehouse Scale Weight: <strong className="text-slate-800">{batchDetails.totalWeightReceivedKg} kg</strong>
+              Warehouse Scale Weight: <strong className="text-slate-800">{batchDetails.receivedWeightKg ?? batchDetails.totalWeightReceivedKg ?? batchDetails.depositedWeightKg ?? 0} kg</strong>
             </span>
             <span className="text-slate-500">
-              Loss: <strong className="text-emerald-700">{batchDetails.lossPercent}%</strong>
+              Loss: <strong className="text-emerald-700">{batchDetails.lossPercent ?? 0}%</strong>
             </span>
           </div>
         )}

@@ -47,7 +47,8 @@ export const StoreIntakePage = () => {
   const handleSelectBatch = (batch) => {
     setSelectedBatch(batch);
     setQrInput(batch.qrCode);
-    setReceivedWeight(batch.totalWeightDepositedKg?.toString() || '');
+    const weight = batch.depositedWeightKg ?? batch.totalWeightDepositedKg ?? '';
+    setReceivedWeight(weight ? weight.toString() : '');
     setReceptionResult(null);
     setError('');
   };
@@ -85,7 +86,7 @@ export const StoreIntakePage = () => {
   };
 
   // Calculate live loss % preview
-  const depositedKg = selectedBatch?.totalWeightDepositedKg || 0;
+  const depositedKg = selectedBatch?.depositedWeightKg ?? selectedBatch?.totalWeightDepositedKg ?? 0;
   const receivedKg = parseFloat(receivedWeight) || 0;
   const liveLossPercent =
     depositedKg > 0 && receivedKg > 0
@@ -220,39 +221,56 @@ export const StoreIntakePage = () => {
 
       {/* Pending / Active Batches Quick Picker */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
-        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-          Pending Collector Batches ({batches.filter((b) => b.status === 'created').length})
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Pending Collector Batches ({batches.filter((b) => ['deposited', 'created'].includes(b.status)).length})
+          </h4>
+          <span className="text-2xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+            Awaiting Scale Intake
+          </span>
+        </div>
 
         {loading ? (
           <p className="text-xs text-slate-400 py-3 text-center">Loading batches...</p>
-        ) : batches.filter((b) => b.status === 'created').length === 0 ? (
-          <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 font-medium">
-            No pending batches awaiting intake. When collectors generate deposit QRs, they appear here.
+        ) : batches.filter((b) => ['deposited', 'created'].includes(b.status)).length === 0 ? (
+          <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 font-medium space-y-1">
+            <p>No pending batches awaiting intake.</p>
+            <p className="text-2xs text-slate-400">
+              When a collector completes pickups and clicks "Generate Deposit QR Code", it will appear here for 1-click scanning!
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
             {batches
-              .filter((b) => b.status === 'created')
+              .filter((b) => ['deposited', 'created'].includes(b.status))
               .map((b) => (
                 <div
                   key={b._id}
                   onClick={() => handleSelectBatch(b)}
-                  className={`p-3 rounded-2xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+                  className={`p-3.5 rounded-2xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
                     selectedBatch?._id === b._id
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
-                      : 'border-slate-200 bg-slate-50/70 hover:border-slate-300 text-slate-800'
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold shadow-xs'
+                      : 'border-slate-200 bg-slate-50/70 hover:border-emerald-400 hover:bg-emerald-50/30 text-slate-800'
                   }`}
                 >
                   <div>
-                    <p className="font-mono font-bold">{b.qrCode}</p>
-                    <p className="text-2xs text-slate-500 font-normal">
-                      Collector: {b.collectorId?.name || 'Partner'} • {b.pickups?.length || 0} pickups
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono font-bold text-slate-900">{b.qrCode}</p>
+                      <span className="text-2xs font-bold bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded uppercase">
+                        {b.status}
+                      </span>
+                    </div>
+                    <p className="text-2xs text-slate-500 font-normal mt-0.5">
+                      Collector: {b.collectorId?.name || 'Partner'} • Tap to auto-fill
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-emerald-700">{b.totalWeightDepositedKg} kg</span>
-                    <p className="text-2xs text-slate-400 uppercase">{b.status}</p>
+                    <span className="font-black text-emerald-700 block">
+                      {b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg
+                    </span>
+                    <span className="text-2xs text-emerald-600 font-bold underline">
+                      Select for Intake ➔
+                    </span>
                   </div>
                 </div>
               ))}
