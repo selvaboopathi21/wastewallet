@@ -43,6 +43,23 @@ export const StoreIntakePage = () => {
     fetchBatches();
   }, []);
 
+  // Quick 1-click test batch generator
+  const handleGenerateDemoBatch = async () => {
+    try {
+      setLoading(true);
+      const res = await api.post('/batches');
+      const newBatch = res?.data?.batch || res?.data?.data?.batch;
+      if (newBatch) {
+        handleSelectBatch(newBatch);
+      }
+      await fetchBatches();
+    } catch (err) {
+      setError(err.message || 'Failed to generate test batch');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle selecting a pending batch
   const handleSelectBatch = (batch) => {
     setSelectedBatch(batch);
@@ -225,19 +242,29 @@ export const StoreIntakePage = () => {
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
             Pending Collector Batches ({batches.filter((b) => ['deposited', 'created'].includes(b.status)).length})
           </h4>
-          <span className="text-2xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-            Awaiting Scale Intake
-          </span>
+          <button
+            type="button"
+            onClick={handleGenerateDemoBatch}
+            className="text-2xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-xl transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+          >
+            <Sparkles className="w-3 h-3 text-emerald-600" />
+            + New Test Batch
+          </button>
         </div>
 
         {loading ? (
           <p className="text-xs text-slate-400 py-3 text-center">Loading batches...</p>
         ) : batches.filter((b) => ['deposited', 'created'].includes(b.status)).length === 0 ? (
-          <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 font-medium space-y-1">
-            <p>No pending batches awaiting intake.</p>
-            <p className="text-2xs text-slate-400">
-              When a collector completes pickups and clicks "Generate Deposit QR Code", it will appear here for 1-click scanning!
-            </p>
+          <div className="p-5 bg-slate-50 rounded-2xl text-center text-xs text-slate-500 font-medium space-y-2">
+            <p>No pending batches awaiting intake right now.</p>
+            <button
+              type="button"
+              onClick={handleGenerateDemoBatch}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-xs cursor-pointer inline-flex items-center gap-1.5 transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Generate Fresh Batch (Murugan • 25 kg)
+            </button>
           </div>
         ) : (
           <div className="space-y-2">

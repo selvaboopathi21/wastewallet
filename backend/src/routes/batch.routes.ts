@@ -14,7 +14,7 @@ import { ROLES } from '../utils/constants';
 const router = Router();
 
 // 1. Collector deposits completed pickups as a new Batch (QR Code)
-router.post('/', authenticate, restrictTo(ROLES.COLLECTOR), createBatch);
+router.post('/', authenticate, restrictTo(ROLES.COLLECTOR, ROLES.STORE_STAFF, ROLES.ADMIN), createBatch);
 
 // 2. View batches (Collector sees their own, Store Staff & Admin see all)
 router.get('/', authenticate, listBatches);

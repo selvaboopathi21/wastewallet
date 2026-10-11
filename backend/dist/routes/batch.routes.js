@@ -11,7 +11,7 @@ const role_1 = require("../middleware/role");
 const constants_1 = require("../utils/constants");
 const router = (0, express_1.Router)();
 // 1. Collector deposits completed pickups as a new Batch (QR Code)
-router.post('/', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLECTOR), batch_controller_1.createBatch);
+router.post('/', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLECTOR, constants_1.ROLES.STORE_STAFF, constants_1.ROLES.ADMIN), batch_controller_1.createBatch);
 // 2. View batches (Collector sees their own, Store Staff & Admin see all)
 router.get('/', auth_1.default, batch_controller_1.listBatches);
 // 3. Store Staff scans QR and records received weight (calculates loss %)
