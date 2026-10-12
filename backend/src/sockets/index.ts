@@ -150,6 +150,28 @@ export const emitOtpSent = (pickupId: string, customerId: string, data: any) => 
   logger.info(`📡 Emitted "pickup.otp.sent" for pickup ${pickupId} to customer ${customerId}`);
 };
 
+/**
+ * 9. Emits new warehouse deposit batch creation to store staff and admin
+ */
+export const emitBatchCreated = (batch: any) => {
+  if (!io) return;
+  io.emit('batch.created', { batch });
+  logger.info(`📡 Emitted "batch.created" for batch ${batch?.qrCode}`);
+};
+
+/**
+ * 10. Emits warehouse gross scale reception confirmation to collector and staff
+ */
+export const emitBatchReceived = (batch: any) => {
+  if (!io) return;
+  const collectorId = batch?.collectorId?._id || batch?.collectorId;
+  if (collectorId) {
+    io.to(`user:${collectorId}`).emit('batch.received', { batch });
+  }
+  io.emit('batch.received', { batch });
+  logger.info(`📡 Emitted "batch.received" for batch ${batch?.qrCode}`);
+};
+
 export default {
   initSocket,
   getIO,
@@ -161,5 +183,8 @@ export default {
   emitPickupConfirmed,
   emitPickupOffered,
   emitOtpSent,
+  emitBatchCreated,
+  emitBatchReceived,
 };
+
 

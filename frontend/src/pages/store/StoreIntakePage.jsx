@@ -11,11 +11,18 @@ import {
   Building,
   Sparkles,
   Search,
+  UserCheck,
+  MapPin,
+  Clock,
+  Phone,
+  Layers,
 } from 'lucide-react';
 import api from '../../api/axios';
+import useSocket from '../../hooks/useSocket';
 
 export const StoreIntakePage = () => {
   const navigate = useNavigate();
+  const { socket } = useSocket();
 
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +32,7 @@ export const StoreIntakePage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [receptionResult, setReceptionResult] = useState(null);
   const [error, setError] = useState('');
+  const [liveAlert, setLiveAlert] = useState(null);
 
   // Fetch active pending batches
   const fetchBatches = async () => {
@@ -55,7 +63,48 @@ export const StoreIntakePage = () => {
 
   useEffect(() => {
     fetchBatches();
+    // 5-second polling interval as a backup
+    const interval = setInterval(fetchBatches, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  // Real-time socket events for new batches and received batches
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleBatchCreated = ({ batch }) => {
+      if (!batch) return;
+      const collectorName = batch.collectorId?.name || 'Collector Partner';
+      const weight = batch.depositedWeightKg ?? batch.totalWeightDepositedKg ?? 0;
+      setLiveAlert(`🔔 New Batch: ${collectorName} deposited ${weight} kg (${batch.qrCode})`);
+
+      setBatches((prev) => [batch, ...prev.filter((b) => b._id !== batch._id && b.qrCode !== batch.qrCode)]);
+      setSelectedBatch(batch);
+      setQrInput(batch.qrCode);
+      setReceivedWeight(weight ? weight.toString() : '');
+      setReceptionResult(null);
+
+      setTimeout(() => setLiveAlert(null), 8000);
+    };
+
+    const handleBatchReceived = ({ batch }) => {
+      if (!batch) return;
+      setBatches((prev) =>
+        prev.map((b) => (b._id === batch._id || b.qrCode === batch.qrCode ? batch : b))
+      );
+      if (selectedBatch && (selectedBatch._id === batch._id || selectedBatch.qrCode === batch.qrCode)) {
+        setSelectedBatch(batch);
+      }
+    };
+
+    socket.on('batch.created', handleBatchCreated);
+    socket.on('batch.received', handleBatchReceived);
+
+    return () => {
+      socket.off('batch.created', handleBatchCreated);
+      socket.off('batch.received', handleBatchReceived);
+    };
+  }, [socket, selectedBatch]);
 
   // Handle selecting a pending batch
   const handleSelectBatch = (batch) => {
@@ -124,10 +173,104 @@ export const StoreIntakePage = () => {
         </p>
       </div>
 
+      {liveAlert && (
+        <div className="p-3 bg-emerald-900 text-white border border-emerald-700 rounded-2xl text-xs font-bold flex items-center justify-between shadow-md animate-bounce">
+          <span>{liveAlert}</span>
+          <button
+            onClick={() => setLiveAlert(null)}
+            className="text-2xs text-emerald-300 hover:text-white px-2 py-0.5 rounded cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-semibold flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Selected Batch Details Card (Collector & Customer Visits) */}
+      {selectedBatch && (
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white p-5 rounded-3xl shadow-sm border border-slate-700 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black">
+                📦
+              </div>
+              <div>
+                <span className="text-3xs uppercase font-bold text-slate-400 block tracking-wider">
+                  Collector Handover Details
+                </span>
+                <h3 className="text-xs font-black text-white">
+                  {selectedBatch.collectorId?.name || 'Murugan (Top Collector)'}
+                </h3>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-2xs font-mono font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full block">
+                {selectedBatch.qrCode}
+              </span>
+              <span className="text-3xs text-slate-400 mt-0.5 block">
+                Phone: {selectedBatch.collectorId?.phone || '9876500001'}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700/60 text-xs">
+            <div className="p-2.5 bg-white/5 rounded-xl">
+              <span className="text-3xs text-slate-400 block uppercase font-bold">
+                Total Scrap Delivered
+              </span>
+              <span className="text-base font-black text-emerald-400">
+                {depositedKg.toFixed(1)} kg
+              </span>
+            </div>
+            <div className="p-2.5 bg-white/5 rounded-xl">
+              <span className="text-3xs text-slate-400 block uppercase font-bold">
+                Customer Visits
+              </span>
+              <span className="text-base font-black text-white">
+                {selectedBatch.pickupRequestIds?.length || 1} Doorstep Homes
+              </span>
+            </div>
+          </div>
+
+          {/* Included Customer Visits Breakdown */}
+          {selectedBatch.pickupRequestIds && selectedBatch.pickupRequestIds.length > 0 && (
+            <div className="pt-2 border-t border-slate-700/60 space-y-1.5">
+              <span className="text-3xs font-bold uppercase tracking-wider text-slate-300 block">
+                Delivered Customer Bags Breakdown
+              </span>
+              <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                {selectedBatch.pickupRequestIds.map((p, idx) => (
+                  <div
+                    key={p._id || idx}
+                    className="p-2 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center justify-between text-2xs"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <span className="font-bold text-white block truncate">
+                        {p.customerId?.name || 'Customer'}
+                      </span>
+                      <span className="text-slate-400 truncate block">
+                        {p.address}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-bold text-emerald-400 block">
+                        {p.totalPickupWeightKg || 0} kg
+                      </span>
+                      <span className="text-slate-400 text-3xs">
+                        ₹{((p.totalAmountPaise || 0) / 100).toFixed(0)} paid
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -172,7 +315,8 @@ export const StoreIntakePage = () => {
                         : 'bg-slate-100 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 border-slate-200'
                     }`}
                   >
-                    {b.qrCode} • {b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg
+                    {b.collectorId?.name ? `${b.collectorId.name.split(' ')[0]}: ` : ''}
+                    {b.qrCode.slice(-8)} • {b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg
                   </button>
                 ))}
               </div>
@@ -186,9 +330,13 @@ export const StoreIntakePage = () => {
                 Gross Received Scale Weight (Kg)
               </label>
               {depositedKg > 0 && (
-                <span className="text-2xs text-slate-400">
-                  Deposited by collector: <strong className="text-slate-700">{depositedKg} kg</strong>
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setReceivedWeight(depositedKg.toString())}
+                  className="text-2xs text-emerald-700 hover:text-emerald-800 font-bold underline cursor-pointer"
+                >
+                  Match Collector Deposited ({depositedKg} kg)
+                </button>
               )}
             </div>
             <div className="relative">
@@ -306,7 +454,7 @@ export const StoreIntakePage = () => {
             </div>
             <p className="text-xs font-bold text-slate-700">No Batches Awaiting Scale Intake</p>
             <p className="text-2xs text-slate-400 max-w-sm mx-auto leading-relaxed">
-              When a collector finishes their collection route and generates their End-of-Day Deposit QR from the Collector app, it will appear here for weighing.
+              When a collector finishes their collection route and generates their End-of-Day Deposit QR from the Collector app, it will appear here instantly for weighing.
             </p>
           </div>
         ) : (
@@ -331,7 +479,7 @@ export const StoreIntakePage = () => {
                       </span>
                     </div>
                     <p className="text-2xs text-slate-500 font-normal mt-0.5">
-                      Collector: {b.collectorId?.name || 'Partner'} • Tap to auto-fill
+                      Collector: {b.collectorId?.name || 'Partner'} • {b.pickupRequestIds?.length || 1} Visits • Tap to auto-fill
                     </p>
                   </div>
                   <div className="text-right">

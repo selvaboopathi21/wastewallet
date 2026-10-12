@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.emitOtpSent = exports.emitPickupOffered = exports.emitPickupConfirmed = exports.emitStatusChanged = exports.emitSeparatePriceDeclined = exports.emitSeparatePriceAccepted = exports.emitSeparatePriceRequested = exports.emitWeightUpdated = exports.getIO = exports.initSocket = void 0;
+exports.emitBatchReceived = exports.emitBatchCreated = exports.emitOtpSent = exports.emitPickupOffered = exports.emitPickupConfirmed = exports.emitStatusChanged = exports.emitSeparatePriceDeclined = exports.emitSeparatePriceAccepted = exports.emitSeparatePriceRequested = exports.emitWeightUpdated = exports.getIO = exports.initSocket = void 0;
 const socket_io_1 = require("socket.io");
 const env_1 = __importDefault(require("../config/env"));
 const logger_1 = __importDefault(require("../utils/logger"));
@@ -152,6 +152,30 @@ const emitOtpSent = (pickupId, customerId, data) => {
     logger_1.default.info(`📡 Emitted "pickup.otp.sent" for pickup ${pickupId} to customer ${customerId}`);
 };
 exports.emitOtpSent = emitOtpSent;
+/**
+ * 9. Emits new warehouse deposit batch creation to store staff and admin
+ */
+const emitBatchCreated = (batch) => {
+    if (!io)
+        return;
+    io.emit('batch.created', { batch });
+    logger_1.default.info(`📡 Emitted "batch.created" for batch ${batch?.qrCode}`);
+};
+exports.emitBatchCreated = emitBatchCreated;
+/**
+ * 10. Emits warehouse gross scale reception confirmation to collector and staff
+ */
+const emitBatchReceived = (batch) => {
+    if (!io)
+        return;
+    const collectorId = batch?.collectorId?._id || batch?.collectorId;
+    if (collectorId) {
+        io.to(`user:${collectorId}`).emit('batch.received', { batch });
+    }
+    io.emit('batch.received', { batch });
+    logger_1.default.info(`📡 Emitted "batch.received" for batch ${batch?.qrCode}`);
+};
+exports.emitBatchReceived = emitBatchReceived;
 exports.default = {
     initSocket: exports.initSocket,
     getIO: exports.getIO,
@@ -163,4 +187,6 @@ exports.default = {
     emitPickupConfirmed: exports.emitPickupConfirmed,
     emitPickupOffered: exports.emitPickupOffered,
     emitOtpSent: exports.emitOtpSent,
+    emitBatchCreated: exports.emitBatchCreated,
+    emitBatchReceived: exports.emitBatchReceived,
 };

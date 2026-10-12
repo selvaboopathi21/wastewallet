@@ -2,11 +2,13 @@
 import { Types } from 'mongoose';
 import Batch from '../models/Batch';
 import PickupRequest from '../models/PickupRequest';
+import PickupItem from '../models/PickupItem';
 import SortedMaterial from '../models/SortedMaterial';
 import Buyer from '../models/Buyer';
 import ApiError from '../utils/ApiError';
 import logger from '../utils/logger';
 import { IBatch, ScrapCategory } from '../types';
+import { emitBatchCreated, emitBatchReceived } from '../sockets';
 
 export interface ISortedItemInput {
   materialType: ScrapCategory;
@@ -25,9 +27,9 @@ export const createDepositBatch = async (collectorId: string): Promise<IBatch> =
   // Find eligible completed pickups for this collector that have not been deposited yet
   let eligiblePickups = await PickupRequest.find({
     collectorId: new Types.ObjectId(collectorId),
-    status: 'completed',
+    status: { $in: ['completed', 'paid'] },
     _id: { $nin: alreadyBatchedPickupIds },
-  });
+  }).populate('customerId', 'name phone');
 
   // Fallback: If all past pickups were already deposited in previous runs, bundle recent completed pickups
   if (eligiblePickups.length === 0) {
@@ -35,6 +37,7 @@ export const createDepositBatch = async (collectorId: string): Promise<IBatch> =
       collectorId: new Types.ObjectId(collectorId),
       status: { $in: ['completed', 'paid', 'confirmed'] },
     })
+      .populate('customerId', 'name phone')
       .sort({ updatedAt: -1 })
       .limit(5);
   }
@@ -44,11 +47,12 @@ export const createDepositBatch = async (collectorId: string): Promise<IBatch> =
     eligiblePickups = await PickupRequest.find({
       status: { $in: ['completed', 'paid', 'confirmed'] },
     })
+      .populate('customerId', 'name phone')
       .sort({ updatedAt: -1 })
       .limit(5);
   }
 
-  // Compute total deposited weight from the sum of all pickups (minimum 12.5 kg for testing)
+  // Compute total deposited weight from the sum of all pickups
   const totalWeight = eligiblePickups.reduce((sum, p) => sum + (p.totalPickupWeightKg || 0), 0);
   const depositedWeightKg = Number((totalWeight > 0 ? totalWeight : 15.0).toFixed(2));
 
@@ -64,11 +68,21 @@ export const createDepositBatch = async (collectorId: string): Promise<IBatch> =
     depositedAt: new Date(),
   });
 
+  const populatedBatch = await Batch.findById(batch._id)
+    .populate('collectorId', 'name phone storeName')
+    .populate({
+      path: 'pickupRequestIds',
+      select: 'address totalPickupWeightKg totalAmountPaise pricingMode customerId status createdAt',
+      populate: { path: 'customerId', select: 'name phone' },
+    });
+
   logger.info(
     `📦 Collector ${collectorId} created batch ${batch.qrCode}: ${eligiblePickups.length} pickups, ${depositedWeightKg} kg.`
   );
 
-  return batch;
+  emitBatchCreated(populatedBatch || batch);
+
+  return (populatedBatch || batch) as unknown as IBatch;
 };
 
 /**
@@ -127,11 +141,22 @@ export const receiveBatch = async (
 
   await batch.save();
 
+  const populatedBatch = await Batch.findById(batch._id)
+    .populate('collectorId', 'name phone storeName')
+    .populate('receivedBy', 'name phone')
+    .populate({
+      path: 'pickupRequestIds',
+      select: 'address totalPickupWeightKg totalAmountPaise pricingMode customerId status createdAt',
+      populate: { path: 'customerId', select: 'name phone' },
+    });
+
   logger.info(
     `🏬 Store staff received batch ${batch.qrCode}: Deposited ${batch.depositedWeightKg} kg, Received ${receivedWeightKg} kg (Loss: ${lossPercent}%)`
   );
 
-  return batch;
+  emitBatchReceived(populatedBatch || batch);
+
+  return (populatedBatch || batch) as unknown as IBatch;
 };
 
 /**
@@ -214,17 +239,27 @@ export const getBatchDetails = async (batchIdOrQr: string) => {
   const batch = await Batch.findOne(query)
     .populate('collectorId', 'name phone storeName')
     .populate('receivedBy', 'name phone')
-    .populate('pickupRequestIds', 'address totalPickupWeightKg totalAmountPaise pricingMode');
+    .populate({
+      path: 'pickupRequestIds',
+      select: 'address totalPickupWeightKg totalAmountPaise pricingMode customerId status createdAt',
+      populate: { path: 'customerId', select: 'name phone' },
+    });
 
   if (!batch) {
     throw new ApiError(404, 'Batch not found');
   }
+
+  // Also fetch itemized PickupItems for these pickups so staff can see category breakdown (Copper, Iron, etc.)
+  const pickupItems = await PickupItem.find({
+    requestId: { $in: batch.pickupRequestIds },
+  });
 
   const sortedMaterials = await SortedMaterial.find({ batchId: batch._id })
     .populate('destinationBuyerId', 'name contact acceptedMaterials');
 
   return {
     batch,
+    pickupItems,
     sortedMaterials,
   };
 };
@@ -239,7 +274,12 @@ export const listBatches = async (collectorId?: string, status?: string) => {
 
   return await Batch.find(filter)
     .populate('collectorId', 'name phone storeName')
-    .populate('receivedBy', 'name')
+    .populate('receivedBy', 'name phone')
+    .populate({
+      path: 'pickupRequestIds',
+      select: 'address totalPickupWeightKg totalAmountPaise pricingMode customerId status createdAt',
+      populate: { path: 'customerId', select: 'name phone' },
+    })
     .sort({ createdAt: -1 });
 };
 

@@ -11,36 +11,81 @@ import {
   CheckCircle2,
   AlertCircle,
   Building,
+  MapPin,
+  Truck,
+  UserCheck,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import api from '../../api/axios';
+import useSocket from '../../hooks/useSocket';
 
 export const CollectorBatchPage = () => {
   const navigate = useNavigate();
+  const { socket } = useSocket();
+
   const [batches, setBatches] = useState([]);
+  const [completedPickups, setCompletedPickups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [activeBatch, setActiveBatch] = useState(null);
+  const [showPickupsList, setShowPickupsList] = useState(true);
   const [error, setError] = useState('');
 
-  const fetchBatches = async () => {
+  // 1. Fetch completed visits and existing batches
+  const loadData = async () => {
     try {
-      const res = await api.get('/batches');
-      const list = res?.data?.data?.batches || res?.data?.batches || [];
-      setBatches(list);
-      if (list.length > 0 && !activeBatch) {
-        setActiveBatch(list[0]);
+      const [batchRes, activeRes] = await Promise.allSettled([
+        api.get('/batches'),
+        api.get('/collector/active'),
+      ]);
+
+      if (batchRes.status === 'fulfilled') {
+        const list = batchRes.value?.data?.data?.batches || batchRes.value?.data?.batches || [];
+        setBatches(list);
+        if (list.length > 0 && !activeBatch) {
+          setActiveBatch(list[0]);
+        }
+      }
+
+      if (activeRes.status === 'fulfilled') {
+        const jobs = activeRes.value?.data?.data?.completedJobs || [];
+        setCompletedPickups(jobs);
       }
     } catch (err) {
-      console.error('Error fetching batches:', err);
+      console.error('Error loading collector batch data:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchBatches();
+    loadData();
+    const interval = setInterval(loadData, 6000);
+    return () => clearInterval(interval);
   }, []);
 
+  // 2. Real-time socket event for when warehouse staff receives/weighs the batch
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleBatchReceived = ({ batch }) => {
+      if (!batch) return;
+      setBatches((prev) =>
+        prev.map((b) => (b._id === batch._id || b.qrCode === batch.qrCode ? batch : b))
+      );
+      if (activeBatch && (activeBatch._id === batch._id || activeBatch.qrCode === batch.qrCode)) {
+        setActiveBatch(batch);
+      }
+    };
+
+    socket.on('batch.received', handleBatchReceived);
+    return () => {
+      socket.off('batch.received', handleBatchReceived);
+    };
+  }, [socket, activeBatch]);
+
+  // 3. Generate new deposit batch
   const handleGenerateBatch = async () => {
     setGenerating(true);
     setError('');
@@ -50,14 +95,24 @@ export const CollectorBatchPage = () => {
       if (newBatch) {
         setActiveBatch(newBatch);
         setBatches((prev) => [newBatch, ...prev]);
-        alert(`Deposit batch created: ${newBatch.qrCode}`);
+        await loadData();
       }
     } catch (err) {
-      setError(err.message || 'No completed pickups found to deposit, or failed to create batch.');
+      setError(err.message || 'Failed to create deposit batch. Please try again.');
     } finally {
       setGenerating(false);
     }
   };
+
+  // Calculate unbatched totals from completed visits
+  const totalCompletedWeight = completedPickups.reduce(
+    (sum, p) => sum + (p.totalPickupWeightKg || 0),
+    0
+  );
+  const totalCompletedCash = completedPickups.reduce(
+    (sum, p) => sum + (p.totalAmountPaise || 0) / 100,
+    0
+  );
 
   return (
     <div className="space-y-4">
@@ -73,7 +128,7 @@ export const CollectorBatchPage = () => {
           <h2 className="text-base font-black text-slate-900 leading-tight">
             Central Store Deposit QR
           </h2>
-          <p className="text-2xs text-slate-400">Warehouse Reception & Intake Handover</p>
+          <p className="text-2xs text-slate-500">Warehouse Reception & Intake Handover</p>
         </div>
       </div>
 
@@ -84,8 +139,8 @@ export const CollectorBatchPage = () => {
         </div>
       )}
 
-      {/* Main Action: Generate Deposit QR */}
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-3xl shadow-sm space-y-4">
+      {/* Main Action: Generate Deposit QR Card */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white p-5 rounded-3xl shadow-sm space-y-4 border border-slate-700/60">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Building className="w-4 h-4 text-emerald-400" />
@@ -93,14 +148,31 @@ export const CollectorBatchPage = () => {
               End-of-Day Handover
             </span>
           </div>
-          <span className="text-2xs font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-emerald-400">
+          <span className="text-2xs font-mono font-bold bg-white/10 px-2 py-0.5 rounded text-emerald-300">
             Warehouse Hub
           </span>
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed">
-          Bundle all completed doorstep pickups from today into a verifiable deposit batch. The store staff will scan this QR, re-weigh the bags on warehouse gross scales, and compute loss %.
+          Bundle all completed doorstep pickups into an intake deposit batch. The store staff will scan this QR, re-weigh your bags on the gross intake scale, and verify weight loss.
         </p>
+
+        {completedPickups.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 p-3 bg-white/10 rounded-2xl border border-white/10 text-xs">
+            <div>
+              <span className="text-3xs uppercase font-bold text-slate-300 block">Today's Pickups</span>
+              <span className="text-sm font-black text-emerald-300">
+                {completedPickups.length} Visits Completed
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-3xs uppercase font-bold text-slate-300 block">Total Weight Collected</span>
+              <span className="text-sm font-black text-white">
+                {totalCompletedWeight.toFixed(1)} kg
+              </span>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleGenerateBatch}
@@ -108,42 +180,172 @@ export const CollectorBatchPage = () => {
           className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer disabled:opacity-50"
         >
           <QrCode className="w-4 h-4" />
-          {generating ? 'Bundling Pickups...' : 'Generate Today\'s Deposit QR'}
+          {generating
+            ? 'Bundling Pickups...'
+            : `Generate Today's Deposit QR (${totalCompletedWeight > 0 ? `${totalCompletedWeight.toFixed(1)} kg` : 'All Pickups'})`}
         </button>
       </div>
 
       {/* Active QR Card Display */}
       {activeBatch && (
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-md text-center space-y-4">
-          <div className="inline-block bg-slate-900 p-6 rounded-3xl shadow-inner">
-            {/* Visual Simulated QR Code Box */}
-            <div className="w-48 h-48 bg-white p-3 rounded-2xl mx-auto flex flex-col items-center justify-center border-4 border-slate-800">
-              <QrCode className="w-36 h-36 text-slate-950" />
-            </div>
-            <p className="text-xs font-mono font-black text-emerald-400 mt-3 tracking-widest">
-              {activeBatch.qrCode}
-            </p>
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-md space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-2xs font-bold uppercase tracking-wider text-slate-400">
+              Active Deposit Code
+            </span>
+            <span
+              className={`text-2xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                activeBatch.status === 'received'
+                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse'
+              }`}
+            >
+              {activeBatch.status === 'received' ? '✓ Received by Warehouse' : '⏳ Awaiting Store Intake'}
+            </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-xs">
-            <div className="p-2 bg-slate-50 rounded-xl">
-              <p className="text-2xs text-slate-400 font-semibold uppercase">Pickups</p>
-              <p className="text-sm font-black text-slate-900 mt-0.5">
-                {activeBatch.pickupRequestIds?.length || activeBatch.pickups?.length || 1}
+          <div className="text-center">
+            <div className="inline-block bg-slate-900 p-4 rounded-3xl shadow-inner">
+              <div className="w-44 h-44 bg-white p-3 rounded-2xl mx-auto flex flex-col items-center justify-center border-4 border-slate-800">
+                <QrCode className="w-32 h-32 text-slate-950" />
+              </div>
+              <p className="text-xs font-mono font-black text-emerald-400 mt-2.5 tracking-widest">
+                {activeBatch.qrCode}
               </p>
             </div>
-            <div className="p-2 bg-slate-50 rounded-xl">
-              <p className="text-2xs text-slate-400 font-semibold uppercase">Total Weight</p>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-xs">
+            <div className="p-2.5 bg-slate-50 rounded-2xl text-center">
+              <p className="text-2xs text-slate-400 font-semibold uppercase">Visits</p>
+              <p className="text-sm font-black text-slate-900 mt-0.5">
+                {activeBatch.pickupRequestIds?.length || 1}
+              </p>
+            </div>
+            <div className="p-2.5 bg-slate-50 rounded-2xl text-center">
+              <p className="text-2xs text-slate-400 font-semibold uppercase">Total Scrap</p>
               <p className="text-sm font-black text-emerald-600 mt-0.5">
                 {activeBatch.depositedWeightKg ?? activeBatch.totalWeightDepositedKg ?? 0} kg
               </p>
             </div>
-            <div className="p-2 bg-slate-50 rounded-xl">
-              <p className="text-2xs text-slate-400 font-semibold uppercase">Status</p>
+            <div className="p-2.5 bg-slate-50 rounded-2xl text-center">
+              <p className="text-2xs text-slate-400 font-semibold uppercase">Warehouse Status</p>
               <p className="text-2xs font-bold text-slate-800 uppercase mt-1">
-                {activeBatch.status}
+                {activeBatch.status === 'received'
+                  ? `Recvd (${activeBatch.lossPercent ?? 0}% Loss)`
+                  : 'Deposited'}
               </p>
             </div>
+          </div>
+
+          {/* Reception Details Confirmation Banner */}
+          {activeBatch.status === 'received' && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-2xl text-xs space-y-1">
+              <div className="flex items-center gap-1.5 text-emerald-900 font-bold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                <span>Gross Scale Verified by Store Staff!</span>
+              </div>
+              <p className="text-2xs text-emerald-800">
+                Gross weight received: <strong>{activeBatch.receivedWeightKg} kg</strong> • Loss:{' '}
+                <strong>{activeBatch.lossPercent}%</strong>
+              </p>
+            </div>
+          )}
+
+          {/* Bundled Pickups Itemized List */}
+          {activeBatch.pickupRequestIds && activeBatch.pickupRequestIds.length > 0 && (
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <div
+                onClick={() => setShowPickupsList(!showPickupsList)}
+                className="flex items-center justify-between cursor-pointer"
+              >
+                <span className="text-2xs font-bold uppercase text-slate-600 tracking-wider flex items-center gap-1">
+                  <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  Included Doorstep Visits ({activeBatch.pickupRequestIds.length})
+                </span>
+                {showPickupsList ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
+              </div>
+
+              {showPickupsList && (
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {activeBatch.pickupRequestIds.map((pickup, idx) => (
+                    <div
+                      key={pickup._id || idx}
+                      className="p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <p className="font-bold text-slate-900 truncate">
+                          {pickup.customerId?.name || 'Customer'}
+                        </p>
+                        <p className="text-2xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                          {pickup.address}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-mono font-bold text-emerald-700 block">
+                          {pickup.totalPickupWeightKg || 0} kg
+                        </span>
+                        <span className="text-3xs text-slate-400">
+                          ₹{((pickup.totalAmountPaise || 0) / 100).toFixed(0)} paid
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Completed Visits List from Today */}
+      {completedPickups.length > 0 && (
+        <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              Completed Doorstep Visits ({completedPickups.length})
+            </h4>
+            <span className="text-2xs font-mono font-bold text-emerald-700">
+              ₹{totalCompletedCash.toFixed(0)} Paid
+            </span>
+          </div>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {completedPickups.map((job) => (
+              <div
+                key={job._id}
+                className="p-3 bg-emerald-50/40 rounded-2xl border border-emerald-100 flex items-center justify-between text-xs"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900">
+                      {job.customerId?.name || 'Customer'}
+                    </span>
+                    <span className="text-2xs font-mono text-slate-400">
+                      #{job._id.slice(-6).toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-2xs text-slate-500 truncate max-w-[210px] mt-0.5">
+                    {job.address}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="font-bold text-emerald-800 block">
+                    {job.totalPickupWeightKg || 0} kg
+                  </span>
+                  <span className="text-2xs text-emerald-600 font-semibold">
+                    ₹{((job.totalAmountPaise || 0) / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
