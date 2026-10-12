@@ -27,18 +27,21 @@ export const SocketProvider = ({ children }) => {
       const isBrowser = typeof window !== 'undefined';
       const hostname = isBrowser ? window.location.hostname : '';
 
-      if (
-        import.meta.env.PROD ||
-        hostname.endsWith('.vercel.app') ||
-        (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.') && !hostname.startsWith('10.'))
-      ) {
-        return envUrl && !envUrl.includes('localhost')
-          ? envUrl
-          : 'https://wastewallet-backend-93py.onrender.com';
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+        return envUrl || 'http://localhost:5000';
       }
 
       if (hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
         return `http://${hostname}:5000`;
+      }
+
+      if (
+        hostname.endsWith('.vercel.app') ||
+        (hostname && !hostname.startsWith('192.168.') && !hostname.startsWith('10.'))
+      ) {
+        return envUrl && !envUrl.includes('localhost')
+          ? envUrl
+          : 'https://wastewallet-backend-93py.onrender.com';
       }
 
       return envUrl || 'http://localhost:5000';

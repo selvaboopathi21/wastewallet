@@ -10,23 +10,26 @@ const getBaseUrl = () => {
   const isBrowser = typeof window !== 'undefined';
   const hostname = isBrowser ? window.location.hostname : '';
 
-  // Production or Vercel deployment
+  // 1. If running on desktop localhost -> ALWAYS use localhost backend!
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+    return envUrl || 'http://localhost:5000/api/v1';
+  }
+
+  // 2. Mobile testing on local Wi-Fi (e.g. phone accessing http://192.168.1.5:5173)
+  if (hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
+    return `http://${hostname}:5000/api/v1`;
+  }
+
+  // 3. Remote production or Vercel deployment (e.g. wastewallet.vercel.app)
   if (
-    import.meta.env.PROD ||
     hostname.endsWith('.vercel.app') ||
-    (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('192.168.') && !hostname.startsWith('10.'))
+    (hostname && !hostname.startsWith('192.168.') && !hostname.startsWith('10.'))
   ) {
     return envUrl && !envUrl.includes('localhost')
       ? envUrl
       : 'https://wastewallet-backend-93py.onrender.com/api/v1';
   }
 
-  // Mobile testing on local Wi-Fi (e.g. phone accessing http://192.168.1.5:5173)
-  if (hostname.startsWith('192.168.') || hostname.startsWith('10.')) {
-    return `http://${hostname}:5000/api/v1`;
-  }
-
-  // Local desktop development
   return envUrl || 'http://localhost:5000/api/v1';
 };
 

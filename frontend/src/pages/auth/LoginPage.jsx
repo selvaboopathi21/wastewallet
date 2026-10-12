@@ -243,6 +243,25 @@ export const LoginPage = () => {
 
       navigate(destination, { replace: true });
     } catch (err) {
+      if (err.message && (err.message.includes('already registered') || err.message.includes('Please sign in'))) {
+        try {
+          const loggedInUser = await loginWithPassword({
+            identifier: cleanPhone,
+            password,
+          });
+          const destination = {
+            customer: '/customer',
+            collector: '/collector',
+            store_staff: '/store',
+            admin: '/admin',
+          }[loggedInUser.role] || '/customer';
+          navigate(destination, { replace: true });
+          return;
+        } catch (loginErr) {
+          setError('This mobile number is already registered. If this is your account, please enter the correct password or use Sign In.');
+          return;
+        }
+      }
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
