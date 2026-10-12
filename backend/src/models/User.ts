@@ -28,6 +28,11 @@ const userSchema = new Schema<IUser>(
       trim: true,
       default: '',
     },
+    password: {
+      type: String,
+      select: false,
+      default: '',
+    },
     role: {
       type: String,
       enum: Object.values(ROLES),

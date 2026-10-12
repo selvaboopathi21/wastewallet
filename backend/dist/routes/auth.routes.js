@@ -13,6 +13,8 @@ const router = (0, express_1.Router)();
 router.post('/send-otp', auth_controller_1.sendOtp);
 router.post('/verify-otp', auth_controller_1.verifyOtp);
 router.post('/google', auth_controller_1.googleLogin);
+router.post('/register', auth_controller_1.register);
+router.post('/login', auth_controller_1.login);
 router.get('/me', auth_1.default, auth_controller_1.getMe);
 router.patch('/profile', auth_1.default, auth_controller_1.updateProfile);
 router.get('/admin-only', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.ADMIN), (req, res) => {

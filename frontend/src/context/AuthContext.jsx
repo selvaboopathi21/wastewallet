@@ -81,6 +81,42 @@ export const AuthProvider = ({ children }) => {
     throw new Error('Invalid Google login response from server');
   };
 
+  // Step 4: Email / Username + Password Login
+  const loginWithPassword = async ({ identifier, password }) => {
+    const res = await api.post('/auth/login', { identifier, password });
+    const payload = res?.data?.data || res?.data;
+    if (payload?.token && payload?.user) {
+      const newToken = payload.token;
+      const newUser = payload.user;
+
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+
+      setToken(newToken);
+      setUser(newUser);
+      return newUser;
+    }
+    throw new Error('Invalid login response from server');
+  };
+
+  // Step 5: Email + Password Registration
+  const registerWithPassword = async ({ name, email, phone, password, role, address }) => {
+    const res = await api.post('/auth/register', { name, email, phone, password, role, address });
+    const payload = res?.data?.data || res?.data;
+    if (payload?.token && payload?.user) {
+      const newToken = payload.token;
+      const newUser = payload.user;
+
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+
+      setToken(newToken);
+      setUser(newUser);
+      return newUser;
+    }
+    throw new Error('Invalid registration response from server');
+  };
+
   // Logout
   const logout = () => {
     localStorage.removeItem('token');
@@ -131,6 +167,8 @@ export const AuthProvider = ({ children }) => {
     requestOtp,
     verifyOtp,
     loginWithGoogle,
+    loginWithPassword,
+    registerWithPassword,
     updateProfile,
     loginWithToken,
     logout,

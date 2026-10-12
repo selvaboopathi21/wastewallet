@@ -97,10 +97,52 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
   });
 });
 
+// POST /api/v1/auth/register
+export const register = asyncHandler(async (req: Request, res: Response) => {
+  const { name, email, phone, password, role, address } = req.body;
+  const result = await authService.registerWithPassword({
+    name,
+    email,
+    phone,
+    password,
+    role,
+    address,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Account created successfully',
+    data: {
+      token: result.token,
+      user: result.user,
+    },
+  });
+});
+
+// POST /api/v1/auth/login
+export const login = asyncHandler(async (req: Request, res: Response) => {
+  const { identifier, password } = req.body;
+  const result = await authService.loginWithPassword({
+    identifier,
+    password,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Signed in successfully',
+    data: {
+      token: result.token,
+      user: result.user,
+    },
+  });
+});
+
 export default {
   sendOtp,
   verifyOtp,
   googleLogin,
+  register,
+  login,
   getMe,
   updateProfile,
 };

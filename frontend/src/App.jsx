@@ -13,6 +13,7 @@ import AdminLayout from './layouts/AdminLayout';
 import StoreLayout from './layouts/StoreLayout';
 
 // Pages
+import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
 import CustomerHome from './pages/customer/CustomerHome';
 import CustomerProfilePage from './pages/customer/CustomerProfilePage';
@@ -63,11 +64,9 @@ export const App = () => {
       <AuthProvider>
         <SocketProvider>
           <Routes>
-            {/* Public Authentication Route */}
+            {/* Public Landing & Authentication Routes */}
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
-
-            {/* Root dynamic redirector */}
-            <Route path="/" element={<RootRedirect />} />
 
             {/* Customer Routes (Guarded for customer role) */}
             <Route element={<ProtectedRoute allowedRoles={['customer']} />}>

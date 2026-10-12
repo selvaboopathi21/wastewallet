@@ -26,6 +26,7 @@ export interface IUser extends Document {
   phone: string;
   email?: string;
   googleId?: string;
+  password?: string;
   role: UserRole;
   address?: string;
   location: IGeoPoint;

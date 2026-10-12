@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateProfile = exports.getMe = exports.googleLogin = exports.verifyOtp = exports.sendOtp = void 0;
+exports.login = exports.register = exports.updateProfile = exports.getMe = exports.googleLogin = exports.verifyOtp = exports.sendOtp = void 0;
 const auth_service_1 = __importDefault(require("../services/auth.service"));
 const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
 // POST /api/v1/auth/send-otp
@@ -90,10 +90,48 @@ exports.updateProfile = (0, asyncHandler_1.default)(async (req, res) => {
         },
     });
 });
+// POST /api/v1/auth/register
+exports.register = (0, asyncHandler_1.default)(async (req, res) => {
+    const { name, email, phone, password, role, address } = req.body;
+    const result = await auth_service_1.default.registerWithPassword({
+        name,
+        email,
+        phone,
+        password,
+        role,
+        address,
+    });
+    res.status(201).json({
+        success: true,
+        message: 'Account created successfully',
+        data: {
+            token: result.token,
+            user: result.user,
+        },
+    });
+});
+// POST /api/v1/auth/login
+exports.login = (0, asyncHandler_1.default)(async (req, res) => {
+    const { identifier, password } = req.body;
+    const result = await auth_service_1.default.loginWithPassword({
+        identifier,
+        password,
+    });
+    res.status(200).json({
+        success: true,
+        message: 'Signed in successfully',
+        data: {
+            token: result.token,
+            user: result.user,
+        },
+    });
+});
 exports.default = {
     sendOtp: exports.sendOtp,
     verifyOtp: exports.verifyOtp,
     googleLogin: exports.googleLogin,
+    register: exports.register,
+    login: exports.login,
     getMe: exports.getMe,
     updateProfile: exports.updateProfile,
 };
