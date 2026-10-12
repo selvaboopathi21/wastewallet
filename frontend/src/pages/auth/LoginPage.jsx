@@ -115,7 +115,12 @@ export const LoginPage = () => {
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError('');
-    const cleanOtp = otp.trim();
+    const cleanOtp = otp ? otp.trim() : '';
+    const cleanPhone = phone ? phone.trim() : '';
+
+    if (!cleanPhone) {
+      return setError('Phone number is missing. Please tap Change Number.');
+    }
 
     if (!cleanOtp || cleanOtp.length !== 6) {
       return setError('Please enter the 6-digit OTP code');
