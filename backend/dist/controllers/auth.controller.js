@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMe = exports.verifyOtp = exports.sendOtp = void 0;
+exports.updateProfile = exports.getMe = exports.verifyOtp = exports.sendOtp = void 0;
 const auth_service_1 = __importDefault(require("../services/auth.service"));
 const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
 // POST /api/v1/auth/send-otp
@@ -24,12 +24,13 @@ exports.sendOtp = (0, asyncHandler_1.default)(async (req, res) => {
 });
 // POST /api/v1/auth/verify-otp
 exports.verifyOtp = (0, asyncHandler_1.default)(async (req, res) => {
-    const { phone, otp, role, name, language } = req.body;
+    const { phone, otp, role, name, address, language } = req.body;
     const result = await auth_service_1.default.verifyOtpAndLogin({
         phone,
         otp,
         role,
         name,
+        address,
         language,
     });
     res.status(200).json({
@@ -52,8 +53,25 @@ exports.getMe = (0, asyncHandler_1.default)(async (req, res) => {
         },
     });
 });
+// PATCH /api/v1/auth/profile (Update name, address, language)
+exports.updateProfile = (0, asyncHandler_1.default)(async (req, res) => {
+    const { name, address, language } = req.body;
+    const user = await auth_service_1.default.updateUserProfile(req.user._id.toString(), {
+        name,
+        address,
+        language,
+    });
+    res.status(200).json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: {
+            user,
+        },
+    });
+});
 exports.default = {
     sendOtp: exports.sendOtp,
     verifyOtp: exports.verifyOtp,
     getMe: exports.getMe,
+    updateProfile: exports.updateProfile,
 };

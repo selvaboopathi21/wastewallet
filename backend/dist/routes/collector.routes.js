@@ -18,6 +18,7 @@ router.patch('/status', collector_controller_1.toggleOnlineStatus);
 router.get('/offers', collector_controller_1.getMyOffers);
 // View accepted active pickups
 router.get('/active-jobs', collector_controller_1.getActiveJobs);
+router.get('/active', collector_controller_1.getActiveJobs);
 // Accept offer (Atomic conditional update)
 router.post('/pickups/:id/accept', collector_controller_1.acceptPickupOffer);
 // Decline offer (Moves to next collector)

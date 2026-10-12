@@ -15,6 +15,7 @@ import StoreLayout from './layouts/StoreLayout';
 // Pages
 import LoginPage from './pages/auth/LoginPage';
 import CustomerHome from './pages/customer/CustomerHome';
+import CustomerProfilePage from './pages/customer/CustomerProfilePage';
 import NewPickupPage from './pages/customer/NewPickupPage';
 import PickupHistoryPage from './pages/customer/PickupHistoryPage';
 import LiveTrackingPage from './pages/customer/LiveTrackingPage';
@@ -75,7 +76,7 @@ export const App = () => {
                 <Route path="/customer/pickups" element={<PickupHistoryPage />} />
                 <Route path="/customer/pickups/:id" element={<LiveTrackingPage />} />
                 <Route path="/customer/new-pickup" element={<NewPickupPage />} />
-                <Route path="/customer/profile" element={<CustomerHome />} />
+                <Route path="/customer/profile" element={<CustomerProfilePage />} />
               </Route>
             </Route>
 

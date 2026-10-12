@@ -23,14 +23,16 @@ export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
 
 // POST /api/v1/auth/verify-otp
 export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
-  const { phone, otp, role, name, language } = req.body;
+  const { phone, otp, role, name, address, language } = req.body;
   const result = await authService.verifyOtpAndLogin({
     phone,
     otp,
     role,
     name,
+    address,
     language,
   });
+
 
   res.status(200).json({
     success: true,
@@ -55,8 +57,28 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+// PATCH /api/v1/auth/profile (Update name, address, language)
+export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+  const { name, address, language } = req.body;
+  const user = await authService.updateUserProfile(req.user!._id.toString(), {
+    name,
+    address,
+    language,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'Profile updated successfully',
+    data: {
+      user,
+    },
+  });
+});
+
 export default {
   sendOtp,
   verifyOtp,
   getMe,
+  updateProfile,
 };
+

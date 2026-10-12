@@ -167,31 +167,56 @@ export const CollectorHome = () => {
           </p>
         </div>
 
+        {/* Unapproved Notice */}
+        {user?.isApproved === false && (
+          <div className="p-3 bg-amber-500/20 border border-amber-400/40 rounded-2xl text-amber-200 text-xs font-semibold flex items-start gap-2">
+            <span className="text-base">⏳</span>
+            <div>
+              <span className="font-bold text-white block">Account Pending Admin Approval</span>
+              <span className="text-3xs text-amber-100">
+                Your partner application has been submitted. The Admin must approve your profile from the Admin Operations dashboard before you can toggle online and receive pickups.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Online/Offline Toggle */}
         <div className="pt-3 border-t border-white/20 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span
               className={`w-3 h-3 rounded-full ${
-                isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
+                user?.isApproved === false
+                  ? 'bg-amber-400'
+                  : isOnline
+                  ? 'bg-emerald-400 animate-pulse'
+                  : 'bg-slate-400'
               }`}
             ></span>
             <span className="text-xs font-bold text-white">
-              {isOnline ? 'Active & Ready for Pickups' : 'Currently Offline'}
+              {user?.isApproved === false
+                ? 'Approval Pending (Offline)'
+                : isOnline
+                ? 'Active & Ready for Pickups'
+                : 'Currently Offline'}
             </span>
           </div>
 
           <button
-            onClick={handleToggleOnline}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs ${
-              isOnline
-                ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+            onClick={user?.isApproved === false ? undefined : handleToggleOnline}
+            disabled={user?.isApproved === false}
+            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-xs ${
+              user?.isApproved === false
+                ? 'bg-slate-600 text-slate-300 cursor-not-allowed opacity-75'
+                : isOnline
+                ? 'bg-rose-500 hover:bg-rose-600 text-white cursor-pointer'
+                : 'bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer'
             }`}
           >
-            {isOnline ? 'Go Offline' : 'Go Online'}
+            {user?.isApproved === false ? 'Awaiting Approval' : isOnline ? 'Go Offline' : 'Go Online'}
           </button>
         </div>
       </div>
+
 
       {/* Daily Performance Stats */}
       <div className="grid grid-cols-3 gap-2">

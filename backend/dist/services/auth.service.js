@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserProfile = exports.verifyOtpAndLogin = exports.requestOtp = void 0;
+exports.getUserProfile = exports.updateUserProfile = exports.verifyOtpAndLogin = exports.requestOtp = void 0;
 // Authentication Service in TypeScript
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
@@ -19,7 +19,7 @@ const requestOtp = async (phone) => {
     return await otp_service_1.default.generateAndSaveOtp(phone);
 };
 exports.requestOtp = requestOtp;
-const verifyOtpAndLogin = async ({ phone, otp, role, name, language, }) => {
+const verifyOtpAndLogin = async ({ phone, otp, role, name, address, language, }) => {
     if (!phone || !otp) {
         throw new ApiError_1.default(400, 'Phone number and OTP code are required');
     }
@@ -36,53 +36,42 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, language, }) => {
             if (activeZone)
                 defaultZoneId = activeZone._id;
         }
+        // Customer is approved automatically; New collector requires Admin approval
+        const isApproved = userRole === 'collector' ? false : true;
         user = await User_1.default.create({
             phone,
-            name: name || (userRole === 'collector' ? 'Kaalaankadai Partner' : ''),
+            name: name && name.trim() ? name.trim() : (userRole === 'collector' ? 'New Collector' : 'Customer'),
             role: userRole,
+            address: address && address.trim() ? address.trim() : '',
             language: language || 'en',
-            isApproved: true,
-            isOnline: true,
+            isApproved,
+            isOnline: userRole === 'collector' ? false : true,
             zoneId: defaultZoneId,
         });
         isNewUser = true;
     }
     else {
-        // Sync demo account roles to match demo buttons
-        if (phone === '9876500002') {
-            user.role = 'store_staff';
-            user.name = 'Warehouse Store Staff';
-            await user.save();
+        // Save updated name/address if provided during login/register
+        let modified = false;
+        if (name && name.trim() && user.name !== name.trim()) {
+            user.name = name.trim();
+            modified = true;
         }
-        else if (phone === '9999999999') {
-            user.role = 'admin';
-            await user.save();
+        if (address && address.trim() && user.address !== address.trim()) {
+            user.address = address.trim();
+            modified = true;
         }
-        else if (role && role !== user.role && ['9876500001', '9876543210'].includes(phone)) {
+        if (role && Object.values(constants_1.ROLES).includes(role) && user.role !== role) {
             user.role = role;
-            await user.save();
+            modified = true;
         }
-        if (user.role === 'collector') {
-            // If existing collector is missing approval or zone, auto-activate
-            let modified = false;
-            if (!user.isApproved) {
-                user.isApproved = true;
-                modified = true;
-            }
-            if (!user.zoneId) {
-                const activeZone = await Zone_1.default.findOne({ isActive: true });
-                if (activeZone) {
-                    user.zoneId = activeZone._id;
-                    modified = true;
-                }
-            }
-            if (modified) {
-                await user.save();
-            }
-        }
+        // Pre-seeded accounts keep approval
         if (['9876500001', '9876543210', '9876500002', '9999999999'].includes(phone)) {
             user.isBlocked = false;
             user.isApproved = true;
+            modified = true;
+        }
+        if (modified) {
             await user.save();
         }
     }
@@ -93,13 +82,13 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, language, }) => {
     const token = jsonwebtoken_1.default.sign({
         id: user._id.toString(),
         role: user.role,
-    }, env_1.default.jwtSecret, { expiresIn: env_1.default.jwtExpiresIn });
+    }, env_1.default.jwtSecret, { expiresIn: '30d' });
     return {
         isNewUser,
         token,
         user: {
             id: user._id.toString(),
-            name: user.name,
+            name: user.name || (user.role === 'collector' ? 'Partner Collector' : 'Customer'),
             phone: user.phone,
             role: user.role,
             isApproved: user.isApproved,
@@ -112,6 +101,20 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, language, }) => {
     };
 };
 exports.verifyOtpAndLogin = verifyOtpAndLogin;
+const updateUserProfile = async (userId, data) => {
+    const user = await User_1.default.findById(userId);
+    if (!user)
+        throw new ApiError_1.default(404, 'User not found');
+    if (data.name && data.name.trim())
+        user.name = data.name.trim();
+    if (data.address && data.address.trim())
+        user.address = data.address.trim();
+    if (data.language)
+        user.language = data.language;
+    await user.save();
+    return user;
+};
+exports.updateUserProfile = updateUserProfile;
 const getUserProfile = async (userId) => {
     const user = await User_1.default.findById(userId).select('-__v');
     if (!user) {
@@ -124,4 +127,5 @@ exports.default = {
     requestOtp: exports.requestOtp,
     verifyOtpAndLogin: exports.verifyOtpAndLogin,
     getUserProfile: exports.getUserProfile,
+    updateUserProfile: exports.updateUserProfile,
 };

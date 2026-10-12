@@ -46,11 +46,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Step 2: Verify OTP and save JWT token
-  const verifyOtp = async ({ phone, otp, name, role }) => {
-    const res = await api.post('/auth/verify-otp', { phone, otp, name, role });
-    if (res?.data?.token && res?.data?.user) {
-      const newToken = res.data.token;
-      const newUser = res.data.user;
+  const verifyOtp = async ({ phone, otp, name, address, role }) => {
+    const res = await api.post('/auth/verify-otp', { phone, otp, name, address, role });
+    const payload = res?.data?.data || res?.data;
+    if (payload?.token && payload?.user) {
+      const newToken = payload.token;
+      const newUser = payload.user;
 
       localStorage.setItem('token', newToken);
       localStorage.setItem('user', JSON.stringify(newUser));
@@ -70,13 +71,25 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Update profile
+  const updateProfile = async ({ name, address, language }) => {
+    const res = await api.patch('/auth/profile', { name, address, language });
+    const updated = res?.data?.data?.user || res?.data?.user;
+    if (updated) {
+      localStorage.setItem('user', JSON.stringify(updated));
+      setUser(updated);
+      return updated;
+    }
+  };
+
   // Refresh profile details (e.g. after rating change or approval status update)
   const refreshProfile = async () => {
     try {
       const res = await api.get('/auth/me');
-      if (res?.data?.user) {
-        setUser(res.data.user);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
+      const u = res?.data?.data?.user || res?.data?.user;
+      if (u) {
+        setUser(u);
+        localStorage.setItem('user', JSON.stringify(u));
       }
     } catch (err) {
       console.error('Error refreshing profile:', err);
@@ -99,6 +112,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!token && !!user,
     requestOtp,
     verifyOtp,
+    updateProfile,
     loginWithToken,
     logout,
     refreshProfile,

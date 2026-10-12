@@ -103,39 +103,41 @@ export const updatePickupStatus = asyncHandler(async (req: Request, res: Respons
 // GET /api/v1/collector/active-jobs
 export const getActiveJobs = asyncHandler(async (req: Request, res: Response) => {
   const collectorId = req.user!._id;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
 
-  const [activeJobs, completedJobs] = await Promise.all([
+  const [activeJobs, completedTodayJobs] = await Promise.all([
     PickupRequest.find({
       collectorId,
       status: { $in: ['accepted', 'on_the_way', 'arrived', 'weighed', 'confirmed'] },
     })
-      .populate('customerId', 'name phone')
+      .populate('customerId', 'name phone address')
       .populate('zoneId', 'name')
       .sort({ updatedAt: -1 }),
 
     PickupRequest.find({
       collectorId,
       status: { $in: ['paid', 'completed'] },
+      updatedAt: { $gte: startOfToday },
     })
-      .populate('customerId', 'name phone')
+      .populate('customerId', 'name phone address')
       .populate('zoneId', 'name')
-      .sort({ updatedAt: -1 })
-      .limit(10),
+      .sort({ updatedAt: -1 }),
   ]);
 
-  const totalCashPaise = completedJobs.reduce((acc, j) => acc + (j.totalAmountPaise || 0), 0);
-  const totalWeightKg = completedJobs.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0);
+  const totalCashPaise = completedTodayJobs.reduce((acc, j) => acc + (j.totalAmountPaise || 0), 0);
+  const totalWeightKg = completedTodayJobs.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0);
 
   res.status(200).json({
     success: true,
     message: 'Active collector jobs retrieved successfully',
     data: {
       activeJobs,
-      completedJobs,
+      completedJobs: completedTodayJobs,
       stats: {
-        completedToday: completedJobs.length,
-        totalWeightKg,
-        totalCashPaid: totalCashPaise / 100,
+        completedToday: completedTodayJobs.length,
+        totalWeightKg: Number(totalWeightKg.toFixed(1)),
+        totalCashPaid: Number((totalCashPaise / 100).toFixed(0)),
       },
     },
   });

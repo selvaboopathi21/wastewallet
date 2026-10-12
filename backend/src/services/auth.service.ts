@@ -13,6 +13,7 @@ export interface IVerifyOtpInput {
   otp: string;
   role?: UserRole;
   name?: string;
+  address?: string;
   language?: Language;
 }
 
@@ -46,6 +47,7 @@ export const verifyOtpAndLogin = async ({
   otp,
   role,
   name,
+  address,
   language,
 }: IVerifyOtpInput): Promise<IAuthResponse> => {
   if (!phone || !otp) {
@@ -68,52 +70,44 @@ export const verifyOtpAndLogin = async ({
       if (activeZone) defaultZoneId = activeZone._id;
     }
 
+    // Customer is approved automatically; New collector requires Admin approval
+    const isApproved = userRole === 'collector' ? false : true;
+
     user = await User.create({
       phone,
-      name: name || (userRole === 'collector' ? 'Kaalaankadai Partner' : ''),
+      name: name && name.trim() ? name.trim() : (userRole === 'collector' ? 'New Collector' : 'Customer'),
       role: userRole,
+      address: address && address.trim() ? address.trim() : '',
       language: language || 'en',
-      isApproved: true,
-      isOnline: true,
+      isApproved,
+      isOnline: userRole === 'collector' ? false : true,
       zoneId: defaultZoneId,
     });
     isNewUser = true;
   } else {
-    // Sync demo account roles to match demo buttons
-    if (phone === '9876500002') {
-      user.role = 'store_staff';
-      user.name = 'Warehouse Store Staff';
-      await user.save();
-    } else if (phone === '9999999999') {
-      user.role = 'admin';
-      await user.save();
-    } else if (role && role !== user.role && ['9876500001', '9876543210'].includes(phone)) {
+    // Save updated name/address if provided during login/register
+    let modified = false;
+    if (name && name.trim() && user.name !== name.trim()) {
+      user.name = name.trim();
+      modified = true;
+    }
+    if (address && address.trim() && user.address !== address.trim()) {
+      user.address = address.trim();
+      modified = true;
+    }
+    if (role && Object.values(ROLES).includes(role) && user.role !== role) {
       user.role = role;
-      await user.save();
+      modified = true;
     }
 
-    if (user.role === 'collector') {
-      // If existing collector is missing approval or zone, auto-activate
-      let modified = false;
-      if (!user.isApproved) {
-        user.isApproved = true;
-        modified = true;
-      }
-      if (!user.zoneId) {
-        const activeZone = await Zone.findOne({ isActive: true });
-        if (activeZone) {
-          user.zoneId = activeZone._id;
-          modified = true;
-        }
-      }
-      if (modified) {
-        await user.save();
-      }
-    }
-
+    // Pre-seeded accounts keep approval
     if (['9876500001', '9876543210', '9876500002', '9999999999'].includes(phone)) {
       user.isBlocked = false;
       user.isApproved = true;
+      modified = true;
+    }
+
+    if (modified) {
       await user.save();
     }
   }
@@ -129,7 +123,7 @@ export const verifyOtpAndLogin = async ({
       role: user.role,
     },
     env.jwtSecret,
-    { expiresIn: env.jwtExpiresIn as any }
+    { expiresIn: '30d' }
   );
 
   return {
@@ -137,7 +131,7 @@ export const verifyOtpAndLogin = async ({
     token,
     user: {
       id: user._id.toString(),
-      name: user.name,
+      name: user.name || (user.role === 'collector' ? 'Partner Collector' : 'Customer'),
       phone: user.phone,
       role: user.role,
       isApproved: user.isApproved,
@@ -148,6 +142,19 @@ export const verifyOtpAndLogin = async ({
       location: user.location,
     },
   };
+};
+
+export const updateUserProfile = async (
+  userId: string,
+  data: { name?: string; address?: string; language?: Language }
+) => {
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, 'User not found');
+  if (data.name && data.name.trim()) user.name = data.name.trim();
+  if (data.address && data.address.trim()) user.address = data.address.trim();
+  if (data.language) user.language = data.language;
+  await user.save();
+  return user;
 };
 
 export const getUserProfile = async (userId: string): Promise<IUser> => {
@@ -162,4 +169,5 @@ export default {
   requestOtp,
   verifyOtpAndLogin,
   getUserProfile,
+  updateUserProfile,
 };

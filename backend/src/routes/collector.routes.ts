@@ -30,6 +30,8 @@ router.get('/offers', getMyOffers);
 
 // View accepted active pickups
 router.get('/active-jobs', getActiveJobs);
+router.get('/active', getActiveJobs);
+
 
 // Accept offer (Atomic conditional update)
 router.post('/pickups/:id/accept', acceptPickupOffer);

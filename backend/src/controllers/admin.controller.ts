@@ -122,6 +122,20 @@ export const approveCollector = asyncHandler(async (req: Request, res: Response)
   });
 });
 
+// GET /api/v1/admin/collectors (List all collectors with approval status)
+export const getCollectorsList = asyncHandler(async (req: Request, res: Response) => {
+  const User = (await import('../models/User')).default;
+  const collectors = await User.find({ role: 'collector' })
+    .select('name phone rating storeName isApproved isOnline createdAt')
+    .sort({ createdAt: -1 });
+
+  res.status(200).json({
+    success: true,
+    message: `Retrieved ${collectors.length} collectors`,
+    data: { collectors },
+  });
+});
+
 // PATCH /api/v1/admin/users/:id/block (Admin blocks/unblocks user)
 export const blockUser = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -138,12 +152,15 @@ export const blockUser = asyncHandler(async (req: Request, res: Response) => {
 
 export default {
   getZones,
-  createZone,
-  updateZoneStatus,
   getRates,
   setRate,
+  createZone,
+  updateZoneStatus,
   getDashboardReports,
   getFraudAlertsList,
+  getCollectorsList,
   approveCollector,
   blockUser,
 };
+
+

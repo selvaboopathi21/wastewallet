@@ -13,6 +13,7 @@ import {
   Camera,
 } from 'lucide-react';
 import api from '../../api/axios';
+import useAuth from '../../hooks/useAuth';
 
 const PRESET_LOCATIONS = [
   {
@@ -43,10 +44,12 @@ const CATEGORIES = [
 
 export const NewPickupPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Form states
   const [selectedLocation, setSelectedLocation] = useState(PRESET_LOCATIONS[0]);
-  const [address, setAddress] = useState(PRESET_LOCATIONS[0].address);
+  const [address, setAddress] = useState(user?.address || PRESET_LOCATIONS[0].address);
+
   const [coordinates, setCoordinates] = useState(PRESET_LOCATIONS[0].coords);
   const [selectedCategories, setSelectedCategories] = useState(['iron', 'paper']);
   const [pricingMode, setPricingMode] = useState('separate'); // 'separate' | 'mixed'

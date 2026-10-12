@@ -20,18 +20,27 @@ export const AdminDashboard = () => {
 
   const [reports, setReports] = useState(null);
   const [fraudAlerts, setFraudAlerts] = useState([]);
+  const [collectors, setCollectors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchDashboardData = async () => {
     try {
-      const [repRes, alertsRes] = await Promise.all([
+      const [repRes, alertsRes, colRes] = await Promise.allSettled([
         api.get('/admin/reports'),
         api.get('/admin/fraud-alerts'),
+        api.get('/admin/collectors'),
       ]);
 
-      setReports(repRes?.data?.data || repRes?.data);
-      setFraudAlerts(alertsRes?.data?.data?.alerts || alertsRes?.data?.alerts || []);
+      if (repRes.status === 'fulfilled') {
+        setReports(repRes.value?.data?.data || repRes.value?.data);
+      }
+      if (alertsRes.status === 'fulfilled') {
+        setFraudAlerts(alertsRes.value?.data?.data?.alerts || alertsRes.value?.data?.alerts || []);
+      }
+      if (colRes.status === 'fulfilled') {
+        setCollectors(colRes.value?.data?.data?.collectors || []);
+      }
     } catch (err) {
       console.error('Error fetching admin dashboard:', err);
       setError(err.message || 'Failed to load operations metrics');
@@ -40,9 +49,23 @@ export const AdminDashboard = () => {
     }
   };
 
+  const handleToggleApproval = async (collectorId, currentStatus) => {
+    try {
+      await api.patch(`/admin/collectors/${collectorId}/approve`, {
+        isApproved: !currentStatus,
+      });
+      setCollectors((prev) =>
+        prev.map((c) => (c._id === collectorId ? { ...c, isApproved: !currentStatus } : c))
+      );
+    } catch (err) {
+      alert(err.message || 'Failed to update collector approval');
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
 
   return (
     <div className="space-y-6">
@@ -182,8 +205,75 @@ export const AdminDashboard = () => {
         )}
       </div>
 
+      {/* Collector Partner Approvals Management */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-emerald-600" />
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+              Collector Partner Approvals ({collectors.length})
+            </h3>
+          </div>
+          <span className="text-2xs font-bold text-slate-400">
+            {collectors.filter((c) => !c.isApproved).length} Pending Review
+          </span>
+        </div>
+
+        {collectors.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-4">No registered collectors found.</p>
+        ) : (
+          <div className="divide-y divide-slate-100 text-xs">
+            {collectors.map((c) => (
+              <div
+                key={c._id}
+                className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900">{c.name || 'Partner Collector'}</span>
+                    <span
+                      className={`text-3xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        c.isApproved
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-900 animate-pulse'
+                      }`}
+                    >
+                      {c.isApproved ? 'Approved Partner ✓' : '⏳ Awaiting Admin Approval'}
+                    </span>
+                    {c.isOnline && (
+                      <span className="text-3xs bg-teal-100 text-teal-800 font-bold px-1.5 py-0.5 rounded">
+                        Online
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-2xs text-slate-500 mt-0.5">
+                    Phone: <span className="font-mono font-bold">+91 {c.phone}</span> • Rating:{' '}
+                    {c.rating?.avg?.toFixed(1) || '4.8'} ★
+                  </p>
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleApproval(c._id, c.isApproved)}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs cursor-pointer transition-all ${
+                      c.isApproved
+                        ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                    }`}
+                  >
+                    {c.isApproved ? 'Revoke Approval' : '✓ Approve Partner'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Quick Nav Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
         <div
           onClick={() => navigate('/admin/rates')}
           className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs hover:border-emerald-400 transition-all cursor-pointer space-y-2"

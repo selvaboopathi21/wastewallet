@@ -113,35 +113,37 @@ exports.updatePickupStatus = (0, asyncHandler_1.default)(async (req, res) => {
 // GET /api/v1/collector/active-jobs
 exports.getActiveJobs = (0, asyncHandler_1.default)(async (req, res) => {
     const collectorId = req.user._id;
-    const [activeJobs, completedJobs] = await Promise.all([
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const [activeJobs, completedTodayJobs] = await Promise.all([
         PickupRequest_1.default.find({
             collectorId,
             status: { $in: ['accepted', 'on_the_way', 'arrived', 'weighed', 'confirmed'] },
         })
-            .populate('customerId', 'name phone')
+            .populate('customerId', 'name phone address')
             .populate('zoneId', 'name')
             .sort({ updatedAt: -1 }),
         PickupRequest_1.default.find({
             collectorId,
             status: { $in: ['paid', 'completed'] },
+            updatedAt: { $gte: startOfToday },
         })
-            .populate('customerId', 'name phone')
+            .populate('customerId', 'name phone address')
             .populate('zoneId', 'name')
-            .sort({ updatedAt: -1 })
-            .limit(10),
+            .sort({ updatedAt: -1 }),
     ]);
-    const totalCashPaise = completedJobs.reduce((acc, j) => acc + (j.totalAmountPaise || 0), 0);
-    const totalWeightKg = completedJobs.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0);
+    const totalCashPaise = completedTodayJobs.reduce((acc, j) => acc + (j.totalAmountPaise || 0), 0);
+    const totalWeightKg = completedTodayJobs.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0);
     res.status(200).json({
         success: true,
         message: 'Active collector jobs retrieved successfully',
         data: {
             activeJobs,
-            completedJobs,
+            completedJobs: completedTodayJobs,
             stats: {
-                completedToday: completedJobs.length,
-                totalWeightKg,
-                totalCashPaid: totalCashPaise / 100,
+                completedToday: completedTodayJobs.length,
+                totalWeightKg: Number(totalWeightKg.toFixed(1)),
+                totalCashPaid: Number((totalCashPaise / 100).toFixed(0)),
             },
         },
     });

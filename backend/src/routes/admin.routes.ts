@@ -8,6 +8,7 @@ import {
   getRates,
   getDashboardReports,
   getFraudAlertsList,
+  getCollectorsList,
   approveCollector,
   blockUser,
 } from '../controllers/admin.controller';
@@ -29,7 +30,9 @@ router.patch('/admin/zones/:id/status', authenticate, restrictTo(ROLES.ADMIN), u
 router.post('/admin/rates', authenticate, restrictTo(ROLES.ADMIN), setRate);
 router.get('/admin/reports', authenticate, restrictTo(ROLES.ADMIN), getDashboardReports);
 router.get('/admin/fraud-alerts', authenticate, restrictTo(ROLES.ADMIN), getFraudAlertsList);
+router.get('/admin/collectors', authenticate, restrictTo(ROLES.ADMIN), getCollectorsList);
 router.patch('/admin/collectors/:id/approve', authenticate, restrictTo(ROLES.ADMIN), approveCollector);
 router.patch('/admin/users/:id/block', authenticate, restrictTo(ROLES.ADMIN), blockUser);
+
 
 export default router;
