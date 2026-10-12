@@ -59,12 +59,25 @@ exports.toggleOnlineStatus = (0, asyncHandler_1.default)(async (req, res) => {
 // GET /api/v1/collector/offers (Get pending job offers for this collector)
 exports.getMyOffers = (0, asyncHandler_1.default)(async (req, res) => {
     const collectorId = req.user._id;
+    const userZoneId = req.user.zoneId;
     const now = new Date();
-    // Find active, unexpired offers currently held by this collector
+    // Find active, unexpired offers: offered to this collector OR offered in their zone
     const offers = await PickupRequest_1.default.find({
         status: 'offered',
-        currentOfferCollectorId: collectorId,
-        offerExpiresAt: { $gt: now },
+        $or: [
+            { currentOfferCollectorId: collectorId },
+            { currentOfferCollectorId: null },
+            { currentOfferCollectorId: { $exists: false } },
+            ...(userZoneId ? [{ zoneId: userZoneId }] : [{}]),
+        ],
+        $and: [
+            {
+                $or: [
+                    { offerExpiresAt: { $gt: now } },
+                    { offerExpiresAt: null },
+                ],
+            },
+        ],
     })
         .populate('customerId', 'name phone')
         .populate('zoneId', 'name');

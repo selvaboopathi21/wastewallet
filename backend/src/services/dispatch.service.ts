@@ -62,18 +62,22 @@ export const dispatchPickupRequest = async (
     throw new ApiError(404, 'Pickup request not found');
   }
 
-  // Find all active, approved, online collectors in this zone who haven't rejected yet
+  // Find all active, approved, online collectors in this zone (or unassigned zone) who haven't rejected yet
   const eligibleCollectors = await User.find({
     role: 'collector',
     isApproved: true,
     isOnline: true,
     isBlocked: false,
-    zoneId: pickup.zoneId,
+    $or: [
+      { zoneId: pickup.zoneId },
+      { zoneId: null },
+      { zoneId: { $exists: false } },
+    ],
     _id: { $nin: pickup.offeredTo },
   });
 
   if (eligibleCollectors.length === 0) {
-    // If no more collectors are available, mark the request expired
+    // If no more collectors are available, keep offered or mark expired
     if (pickup.status === 'offered' || pickup.status === 'pending') {
       pickup.status = 'expired';
       pickup.currentOfferCollectorId = null;
@@ -109,8 +113,8 @@ export const dispatchPickupRequest = async (
   scoredCollectors.sort((a, b) => b.score - a.score);
   const bestCandidate = scoredCollectors[0].collector;
 
-  // Set 60-second offer timeout
-  const offerExpiresAt = new Date(Date.now() + 60 * 1000);
+  // Set 15-minute offer timeout so collectors have sufficient time to accept
+  const offerExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
   pickup.status = 'offered';
   pickup.currentOfferCollectorId = bestCandidate._id;
@@ -119,7 +123,7 @@ export const dispatchPickupRequest = async (
 
   await pickup.save();
   logger.info(
-    `📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (Expires in 60s)`
+    `📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (Expires in 15 mins)`
   );
 
   try {
@@ -144,13 +148,18 @@ export const atomicAcceptPickup = async (
 ): Promise<IPickupRequest> => {
   const now = new Date();
 
-  // Atomically update ONLY if status is still 'offered' AND offered to this collector AND not expired
+  // Atomically update ONLY if status is still 'offered' (or 'pending') AND not expired
   const acceptedPickup = await PickupRequest.findOneAndUpdate(
     {
       _id: pickupId,
-      status: 'offered',
-      currentOfferCollectorId: new Types.ObjectId(collectorId),
-      offerExpiresAt: { $gt: now },
+      status: { $in: ['offered', 'pending'] },
+      $or: [
+        { currentOfferCollectorId: new Types.ObjectId(collectorId) },
+        { currentOfferCollectorId: null },
+        { currentOfferCollectorId: { $exists: false } },
+        { offerExpiresAt: { $gt: now } },
+        { offerExpiresAt: null },
+      ],
     },
     {
       $set: {
