@@ -106,6 +106,10 @@ const pickupRequestSchema = new Schema<IPickupRequest>(
       type: Boolean,
       default: false,
     },
+    confirmationOtp: {
+      type: String,
+      default: null,
+    },
     otpVerifiedAt: {
       type: Date,
       default: null,

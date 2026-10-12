@@ -135,6 +135,10 @@ const pickupRequestSchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
+    confirmationOtp: {
+        type: String,
+        default: null,
+    },
     otpVerifiedAt: {
         type: Date,
         default: null,

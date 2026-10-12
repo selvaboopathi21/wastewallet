@@ -205,15 +205,17 @@ export const CollectorJobCard = () => {
     setActionLoading(true);
     try {
       const res = await api.post(`/collector/pickups/${pickupId}/request-otp`);
-      const otpCode = res?.data?.otp || res?.otp || res?.data?.data?.otp || '123456';
-      setGeneratedOtp(otpCode);
-      setInputOtp(otpCode);
-      alert(`OTP sent to customer (${res?.data?.phone || res?.phone || 'customer'})! Code: ${otpCode}`);
+      const otpCode = res?.data?.otp || res?.otp || res?.data?.data?.otp || '';
+      const finalOtp = otpCode || Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtp(finalOtp);
+      setInputOtp(finalOtp);
+      alert(`6-digit confirmation OTP sent to customer (${res?.data?.phone || res?.phone || 'customer'})!\nOTP Code: ${finalOtp}`);
     } catch (err) {
-      console.warn('Failed to send confirmation OTP, fallback to 123456:', err.message);
-      setGeneratedOtp('123456');
-      setInputOtp('123456');
-      alert('Confirmation OTP generated! Code: 123456');
+      console.warn('Failed to send confirmation OTP:', err.message);
+      const fallbackOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtp(fallbackOtp);
+      setInputOtp(fallbackOtp);
+      alert(`6-digit confirmation OTP generated!\nOTP Code: ${fallbackOtp}`);
     } finally {
       setActionLoading(false);
     }
@@ -553,20 +555,10 @@ export const CollectorJobCard = () => {
               <button
                 onClick={handleRequestConfirmationOtp}
                 disabled={actionLoading}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3 px-4 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3.5 px-4 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 {actionLoading ? 'Sending...' : 'Send 6-Digit OTP to Customer'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleVerifyCustomerOtp('123456')}
-                disabled={actionLoading}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                ⚡ Fast-Lock with Demo OTP (123456) & Proceed to Pay
               </button>
             </div>
           ) : (

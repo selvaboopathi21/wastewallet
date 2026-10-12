@@ -49,23 +49,25 @@ export const LiveTrackingPage = () => {
   const [separateRequestStatus, setSeparateRequestStatus] = useState(null); // 'pending' | 'accepted' | 'declined'
   const [declineReason, setDeclineReason] = useState('');
 
-  // Confirmation OTP state
-  const [confirmationOtp, setConfirmationOtp] = useState('123456');
-  const [devOtp, setDevOtp] = useState('123456');
+  // Confirmation OTP state (Real dynamic 6-digit code)
+  const [confirmationOtp, setConfirmationOtp] = useState('');
+  const [devOtp, setDevOtp] = useState(() => Math.floor(100000 + Math.random() * 900000).toString());
   const [confirmingOtp, setConfirmingOtp] = useState(false);
   const [confirmSuccess, setConfirmSuccess] = useState('');
 
   // Auto-populate confirmation OTP when pickup is weighed
   useEffect(() => {
     if (pickup?.status === 'weighed' && !pickup?.customerConfirmed) {
-      if (!confirmationOtp) {
-        setConfirmationOtp(devOtp || '123456');
-      }
-      if (!devOtp) {
-        setDevOtp('123456');
+      if (pickup.confirmationOtp) {
+        setDevOtp(String(pickup.confirmationOtp));
+        setConfirmationOtp(String(pickup.confirmationOtp));
+      } else if (!devOtp) {
+        const freshOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        setDevOtp(freshOtp);
+        setConfirmationOtp(freshOtp);
       }
     }
-  }, [pickup?.status, pickup?.customerConfirmed, devOtp]);
+  }, [pickup?.status, pickup?.customerConfirmed, pickup?.confirmationOtp]);
 
   // Post-completion rating state
   const [ratingStars, setRatingStars] = useState(5);
@@ -85,6 +87,10 @@ export const LiveTrackingPage = () => {
         setLiveAmountPaise(data.pickup.totalAmountPaise || 0);
         setLiveWeightKg(data.pickup.totalPickupWeightKg || 0);
         setPricingMode(data.pickup.pricingMode || 'separate');
+        if (data.pickup.confirmationOtp) {
+          setDevOtp(String(data.pickup.confirmationOtp));
+          setConfirmationOtp(String(data.pickup.confirmationOtp));
+        }
         if (data.pickup.separateRequest?.requested) {
           setSeparateRequestStatus(data.pickup.separateRequest.status);
           setDeclineReason(data.pickup.separateRequest.declineReason || '');
@@ -127,6 +133,10 @@ export const LiveTrackingPage = () => {
         setLiveAmountPaise(data.totalAmountPaise || 0);
         if (data.mode) setPricingMode(data.mode);
         if (data.items) setItems(data.items);
+        if (data.otp) {
+          setDevOtp(String(data.otp));
+          setConfirmationOtp(String(data.otp));
+        }
         setPickup((prev) => (prev ? { ...prev, status: 'weighed' } : prev));
       }
     };
@@ -462,21 +472,45 @@ export const LiveTrackingPage = () => {
             </div>
           </div>
 
-          {/* Prominently displayed confirmation code - ALWAYS visible */}
-          <div className="bg-white border-2 border-amber-400 rounded-2xl p-4 flex items-center justify-between shadow-xs">
+          {/* Simulated Real-Time SMS Alert Banner */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-md text-slate-100 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 text-base">
+              💬
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-2xs font-bold text-emerald-400 tracking-wider uppercase">SMS Notification</span>
+                <span className="text-3xs text-slate-400">Just Now</span>
+              </div>
+              <p className="text-xs text-slate-200 mt-1 leading-relaxed">
+                WasteWallet: Your OTP to lock scrap payout of <span className="font-bold text-white">₹{(liveAmountPaise / 100).toFixed(2)}</span> is <span className="font-mono font-black text-amber-300 text-sm tracking-widest px-1.5 py-0.5 bg-amber-400/20 rounded">{devOtp}</span>. Valid for 5 minutes.
+              </p>
+            </div>
+          </div>
+
+          {/* 6-Digit SMS Verification Code Display */}
+          <div className="bg-white border-2 border-amber-300 rounded-2xl p-3.5 flex items-center justify-between shadow-2xs">
             <div>
-              <span className="text-2xs font-bold text-amber-800 uppercase tracking-wider block">🔑 Your 6-Digit Confirmation Code</span>
-              <span className="font-mono text-2xl font-black text-amber-950 tracking-widest block mt-0.5">{devOtp || '123456'}</span>
-              <span className="text-3xs text-emerald-700 font-bold block mt-1">
-                {devOtp && devOtp !== '123456' ? '✓ Received Live Code' : '⚡ Universal Demo PIN: 123456'}
+              <span className="text-2xs font-bold text-amber-900 uppercase tracking-wider block">
+                🔑 6-Digit SMS Verification Code
               </span>
+              <div className="flex gap-1.5 mt-2">
+                {devOtp.split('').map((digit, i) => (
+                  <span
+                    key={i}
+                    className="w-7 h-9 rounded-lg bg-amber-50 border border-amber-300 font-mono text-base font-black text-amber-950 flex items-center justify-center shadow-2xs"
+                  >
+                    {digit}
+                  </span>
+                ))}
+              </div>
             </div>
             <button
               type="button"
-              onClick={() => setConfirmationOtp(devOtp || '123456')}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center gap-1.5"
+              onClick={() => setConfirmationOtp(devOtp)}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs transition-all"
             >
-              Auto-Fill Code
+              Paste OTP
             </button>
           </div>
 
@@ -488,33 +522,22 @@ export const LiveTrackingPage = () => {
                 value={confirmationOtp}
                 onChange={(e) => setConfirmationOtp(e.target.value.replace(/\D/g, ''))}
                 placeholder="Enter 6-digit confirmation OTP"
-                className="w-full text-center tracking-widest font-mono text-lg font-black py-3 px-3 bg-white border-2 border-amber-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-inner"
+                className="w-full text-center tracking-widest font-mono text-xl font-black py-3 px-3 bg-white border-2 border-amber-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-inner"
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="submit"
-                disabled={confirmingOtp}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                {confirmingOtp ? 'Confirming...' : 'Lock Amount & Confirm Bill'}
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => handleConfirmOtp(e, devOtp || '123456')}
-                disabled={confirmingOtp}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all"
-              >
-                ⚡ 1-Tap Fast Lock ({devOtp || '123456'})
-              </button>
-            </div>
+            <button
+              type="submit"
+              disabled={confirmingOtp}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              {confirmingOtp ? 'Verifying OTP...' : 'Lock Amount & Confirm Bill'}
+            </button>
           </form>
 
-          <p className="text-2xs text-amber-800 text-center font-semibold">
-            💡 The 6-digit verification code is shown above. Tap "Lock Amount & Confirm Bill" or "1-Tap Fast Lock" to approve payout.
+          <p className="text-2xs text-amber-800 text-center font-medium">
+            💡 Tap "Paste OTP" or type the 6-digit code received via SMS to authorize payout.
           </p>
         </div>
       )}

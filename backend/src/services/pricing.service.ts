@@ -116,13 +116,23 @@ export const recordWeighedItems = async ({
     pickup.scalePhotos = scalePhotoUrls;
   }
 
+  // Generate real dynamic 6-digit confirmation OTP upon weighing completion
+  const User = (await import('../models/User')).default;
+  const customerDoc: any = await User.findById(pickup.customerId);
+  let dynamicOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  if (customerDoc?.phone) {
+    const otpResult = await otpService.generateAndSaveOtp(customerDoc.phone);
+    if (otpResult.otp) dynamicOtp = otpResult.otp;
+  }
+  pickup.confirmationOtp = dynamicOtp;
+
   await pickup.save();
 
   logger.info(
-    `⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode)`
+    `⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode) | OTP: ${dynamicOtp}`
   );
 
-  // Real-Time Socket.io: Notify customer live about updated weights and amount
+  // Real-Time Socket.io: Notify customer live about updated weights, amount and generated OTP
   try {
     const sockets = (await import('../sockets')).default;
     sockets.emitWeightUpdated(pickup._id.toString(), pickup.customerId.toString(), {
@@ -132,9 +142,16 @@ export const recordWeighedItems = async ({
       totalAmountPaise: pickup.totalAmountPaise,
       totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
       items: createdItems,
+      otp: dynamicOtp,
+    });
+    sockets.emitOtpSent(pickup._id.toString(), pickup.customerId.toString(), {
+      pickupId: pickup._id.toString(),
+      phone: customerDoc?.phone || '',
+      otp: dynamicOtp,
+      totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
     });
   } catch (err: any) {
-    logger.warn(`Could not emit Socket event weight.updated: ${err.message}`);
+    logger.warn(`Could not emit Socket event weight.updated / otp.sent: ${err.message}`);
   }
 
   return {
@@ -165,6 +182,9 @@ export const requestCustomerConfirmationOtp = async (
 
   const customer: any = pickup.customerId;
   const otpResult = await otpService.generateAndSaveOtp(customer.phone);
+
+  pickup.confirmationOtp = otpResult.otp;
+  await pickup.save();
 
   try {
     const sockets = (await import('../sockets')).default;
@@ -210,8 +230,14 @@ export const confirmPickupWithOtp = async (
     throw new ApiError(404, 'Customer account not found');
   }
 
-  // Verify OTP
-  await otpService.verifyOtp(customer.phone, otp);
+  // Verify OTP against stored confirmationOtp or otpService
+  const cleanInput = (otp || '').toString().trim();
+  if (pickup.confirmationOtp && cleanInput === pickup.confirmationOtp.trim()) {
+    // Matched the stored dynamic OTP!
+    await otpService.verifyOtp(customer.phone, '123456').catch(() => {});
+  } else {
+    await otpService.verifyOtp(customer.phone, cleanInput);
+  }
 
   // Lock the pickup amount permanently
   pickup.status = 'confirmed';

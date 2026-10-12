@@ -138,6 +138,7 @@ export interface IPickupRequest extends Document {
   totalPickupWeightKg: number;
   totalAmountPaise: number;
   customerConfirmed: boolean;
+  confirmationOtp?: string | null;
   otpVerifiedAt?: Date;
   scalePhotos: string[];
   createdAt: Date;
