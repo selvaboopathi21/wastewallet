@@ -213,6 +213,34 @@ export const CollectorHome = () => {
         </div>
       </div>
 
+      {/* End-of-Day Warehouse Deposit Action Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-4 shadow-sm space-y-2.5 border border-slate-700/60">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <QrCode className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black text-white">Central Warehouse Deposit</h3>
+              <p className="text-2xs text-slate-300">
+                End-of-day scrap handover & gross scale intake
+              </p>
+            </div>
+          </div>
+          <span className="text-2xs font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
+            {stats.completedToday} Done
+          </span>
+        </div>
+
+        <button
+          onClick={() => navigate('/collector/batch')}
+          className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all"
+        >
+          <QrCode className="w-4 h-4" />
+          Generate Deposit QR Code ➔
+        </button>
+      </div>
+
       {/* 60-Second Incoming Offer Modal / Card */}
       {offers.length > 0 && (
         <div className="space-y-3">
