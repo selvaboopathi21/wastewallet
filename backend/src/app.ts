@@ -14,7 +14,12 @@ export const app = express();
 app.use(helmet());
 
 // 2. CORS configuration
-const allowedOrigins = [env.clientUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'];
+const allowedOrigins = [
+  env.clientUrl,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://wastewallet.vercel.app',
+];
 app.use(
   cors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -22,11 +27,14 @@ app.use(
         !origin ||
         allowedOrigins.includes(origin) ||
         env.clientUrl === '*' ||
-        origin.endsWith('.vercel.app')
+        origin.endsWith('.vercel.app') ||
+        /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin) ||
+        /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin)
       ) {
         return callback(null, true);
       }
-      return callback(new Error('Blocked by CORS policy'));
+      // Permissive fallback for mobile devices and preview domains
+      return callback(null, true);
     },
     credentials: true,
   })
