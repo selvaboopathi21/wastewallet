@@ -49,22 +49,18 @@ export const LiveTrackingPage = () => {
   const [separateRequestStatus, setSeparateRequestStatus] = useState(null); // 'pending' | 'accepted' | 'declined'
   const [declineReason, setDeclineReason] = useState('');
 
-  // Confirmation OTP state (Real dynamic 6-digit code)
+  // Confirmation OTP state: initially empty until collector triggers OTP
   const [confirmationOtp, setConfirmationOtp] = useState('');
-  const [devOtp, setDevOtp] = useState(() => Math.floor(100000 + Math.random() * 900000).toString());
+  const [devOtp, setDevOtp] = useState('');
   const [confirmingOtp, setConfirmingOtp] = useState(false);
   const [confirmSuccess, setConfirmSuccess] = useState('');
 
-  // Auto-populate confirmation OTP when pickup is weighed
+  // Sync confirmation OTP when server provides it
   useEffect(() => {
     if (pickup?.status === 'weighed' && !pickup?.customerConfirmed) {
       if (pickup.confirmationOtp) {
         setDevOtp(String(pickup.confirmationOtp));
         setConfirmationOtp(String(pickup.confirmationOtp));
-      } else if (!devOtp) {
-        const freshOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        setDevOtp(freshOtp);
-        setConfirmationOtp(freshOtp);
       }
     }
   }, [pickup?.status, pickup?.customerConfirmed, pickup?.confirmationOtp]);
@@ -452,11 +448,11 @@ export const LiveTrackingPage = () => {
                     {item.category.replace('_', ' ')}
                   </p>
                   <p className="text-2xs text-slate-400">
-                    {item.weightKg} kg × ₹{(item.pricePerKgPaise / 100).toFixed(2)}/kg
+                    {item.weightKg} kg × ₹{(((item.ratePerKgPaise || item.pricePerKgPaise || 0) / 100)).toFixed(2)}/kg
                   </p>
                 </div>
                 <span className="font-mono font-bold text-slate-900">
-                  ₹{(item.totalPricePaise / 100).toFixed(2)}
+                  ₹{(((item.amountPaise || item.totalPricePaise || 0) / 100)).toFixed(2)}
                 </span>
               </div>
             ))}
@@ -482,73 +478,87 @@ export const LiveTrackingPage = () => {
             </div>
           </div>
 
-          {/* Simulated Real-Time SMS Alert Banner */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-md text-slate-100 flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 text-base">
-              💬
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-2xs font-bold text-emerald-400 tracking-wider uppercase">SMS Notification</span>
-                <span className="text-3xs text-slate-400">Just Now</span>
-              </div>
-              <p className="text-xs text-slate-200 mt-1 leading-relaxed">
-                WasteWallet: Your OTP to lock scrap payout of <span className="font-bold text-white">₹{(liveAmountPaise / 100).toFixed(2)}</span> is <span className="font-mono font-black text-amber-300 text-sm tracking-widest px-1.5 py-0.5 bg-amber-400/20 rounded">{devOtp}</span>. Valid for 5 minutes.
+          {!devOtp ? (
+            <div className="p-4 bg-white border border-amber-300 rounded-2xl text-center space-y-2">
+              <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                Awaiting SMS Verification Code
+              </p>
+              <p className="text-2xs text-amber-800">
+                The collector will tap "Send 6-Digit OTP" on their terminal to dispatch your verification SMS.
               </p>
             </div>
-          </div>
-
-          {/* 6-Digit SMS Verification Code Display */}
-          <div className="bg-white border-2 border-amber-300 rounded-2xl p-3.5 flex items-center justify-between shadow-2xs">
-            <div>
-              <span className="text-2xs font-bold text-amber-900 uppercase tracking-wider block">
-                🔑 6-Digit SMS Verification Code
-              </span>
-              <div className="flex gap-1.5 mt-2">
-                {devOtp.split('').map((digit, i) => (
-                  <span
-                    key={i}
-                    className="w-7 h-9 rounded-lg bg-amber-50 border border-amber-300 font-mono text-base font-black text-amber-950 flex items-center justify-center shadow-2xs"
-                  >
-                    {digit}
-                  </span>
-                ))}
+          ) : (
+            <>
+              {/* Simulated Real-Time SMS Alert Banner */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 shadow-md text-slate-100 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0 text-base">
+                  💬
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-2xs font-bold text-emerald-400 tracking-wider uppercase">SMS Notification</span>
+                    <span className="text-3xs text-slate-400">Just Now</span>
+                  </div>
+                  <p className="text-xs text-slate-200 mt-1 leading-relaxed">
+                    WasteWallet: Your OTP to lock scrap payout of <span className="font-bold text-white">₹{(liveAmountPaise / 100).toFixed(2)}</span> is <span className="font-mono font-black text-amber-300 text-sm tracking-widest px-1.5 py-0.5 bg-amber-400/20 rounded">{devOtp}</span>. Valid for 5 minutes.
+                  </p>
+                </div>
               </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setConfirmationOtp(devOtp)}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs transition-all"
-            >
-              Paste OTP
-            </button>
-          </div>
 
-          <form onSubmit={handleConfirmOtp} className="space-y-3">
-            <div className="relative">
-              <input
-                type="text"
-                maxLength={6}
-                value={confirmationOtp}
-                onChange={(e) => setConfirmationOtp(e.target.value.replace(/\D/g, ''))}
-                placeholder="Enter 6-digit confirmation OTP"
-                className="w-full text-center tracking-widest font-mono text-xl font-black py-3 px-3 bg-white border-2 border-amber-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-inner"
-              />
-            </div>
+              {/* 6-Digit SMS Verification Code Display */}
+              <div className="bg-white border-2 border-amber-300 rounded-2xl p-3.5 flex items-center justify-between shadow-2xs">
+                <div>
+                  <span className="text-2xs font-bold text-amber-900 uppercase tracking-wider block">
+                    🔑 6-Digit SMS Verification Code
+                  </span>
+                  <div className="flex gap-1.5 mt-2">
+                    {devOtp.split('').map((digit, i) => (
+                      <span
+                        key={i}
+                        className="w-7 h-9 rounded-lg bg-amber-50 border border-amber-300 font-mono text-base font-black text-amber-950 flex items-center justify-center shadow-2xs"
+                      >
+                        {digit}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfirmationOtp(devOtp)}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs transition-all"
+                >
+                  Paste OTP
+                </button>
+              </div>
 
-            <button
-              type="submit"
-              disabled={confirmingOtp}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              {confirmingOtp ? 'Verifying OTP...' : 'Lock Amount & Confirm Bill'}
-            </button>
-          </form>
+              <form onSubmit={handleConfirmOtp} className="space-y-3">
+                <div className="relative">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={confirmationOtp}
+                    onChange={(e) => setConfirmationOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter 6-digit confirmation OTP"
+                    className="w-full text-center tracking-widest font-mono text-xl font-black py-3 px-3 bg-white border-2 border-amber-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-inner"
+                  />
+                </div>
 
-          <p className="text-2xs text-amber-800 text-center font-medium">
-            💡 Tap "Paste OTP" or type the 6-digit code received via SMS to authorize payout.
-          </p>
+                <button
+                  type="submit"
+                  disabled={confirmingOtp}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {confirmingOtp ? 'Verifying OTP...' : 'Lock Amount & Confirm Bill'}
+                </button>
+              </form>
+
+              <p className="text-2xs text-amber-800 text-center font-medium">
+                💡 Tap "Paste OTP" or type the 6-digit code received via SMS to authorize payout.
+              </p>
+            </>
+          )}
         </div>
       )}
 

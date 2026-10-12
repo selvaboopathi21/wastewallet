@@ -116,23 +116,14 @@ export const recordWeighedItems = async ({
     pickup.scalePhotos = scalePhotoUrls;
   }
 
-  // Generate real dynamic 6-digit confirmation OTP upon weighing completion
-  const User = (await import('../models/User')).default;
-  const customerDoc: any = await User.findById(pickup.customerId);
-  let dynamicOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  if (customerDoc?.phone) {
-    const otpResult = await otpService.generateAndSaveOtp(customerDoc.phone);
-    if (otpResult.otp) dynamicOtp = otpResult.otp;
-  }
-  pickup.confirmationOtp = dynamicOtp;
-
+  pickup.confirmationOtp = null;
   await pickup.save();
 
   logger.info(
-    `⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode) | OTP: ${dynamicOtp}`
+    `⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode)`
   );
 
-  // Real-Time Socket.io: Notify customer live about updated weights, amount and generated OTP
+  // Real-Time Socket.io: Notify customer live about updated weights and amount
   try {
     const sockets = (await import('../sockets')).default;
     sockets.emitWeightUpdated(pickup._id.toString(), pickup.customerId.toString(), {
@@ -142,16 +133,9 @@ export const recordWeighedItems = async ({
       totalAmountPaise: pickup.totalAmountPaise,
       totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
       items: createdItems,
-      otp: dynamicOtp,
-    });
-    sockets.emitOtpSent(pickup._id.toString(), pickup.customerId.toString(), {
-      pickupId: pickup._id.toString(),
-      phone: customerDoc?.phone || '',
-      otp: dynamicOtp,
-      totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
     });
   } catch (err: any) {
-    logger.warn(`Could not emit Socket event weight.updated / otp.sent: ${err.message}`);
+    logger.warn(`Could not emit Socket event weight.updated: ${err.message}`);
   }
 
   return {
