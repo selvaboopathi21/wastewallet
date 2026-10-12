@@ -83,6 +83,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Direct 1-click login with token
+  const loginWithToken = (tokenStr, userObj) => {
+    localStorage.setItem('token', tokenStr);
+    localStorage.setItem('user', JSON.stringify(userObj));
+    setToken(tokenStr);
+    setUser(userObj);
+    return userObj;
+  };
+
   const value = {
     user,
     token,
@@ -90,6 +99,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!token && !!user,
     requestOtp,
     verifyOtp,
+    loginWithToken,
     logout,
     refreshProfile,
   };

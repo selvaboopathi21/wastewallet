@@ -4,8 +4,66 @@ import { useNavigate } from 'react-router-dom';
 import { Recycle, Phone, KeyRound, ArrowRight, CheckCircle2, UserCheck } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 
+// Pre-verified demo credentials for instant 1-click mobile access
+const DEMO_ACCOUNTS = {
+  customer: {
+    token:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhY2E2NDRhMTc3N2RmYTI2MTQzMzE0ZSIsInJvbGUiOiJjdXN0b21lciIsImlhdCI6MTc5MTc5NDI4NywiZXhwIjoxNzk0Mzg2Mjg3fQ.Yd46BVZuhmp7D4iGTQ-Uup5myRZYLDeC55DSdx6rm54',
+    user: {
+      _id: '6aca644a1777dfa26143314e',
+      id: '6aca644a1777dfa26143314e',
+      name: 'Ravi Kumar',
+      phone: '9876543210',
+      role: 'customer',
+      language: 'en',
+    },
+    destination: '/customer',
+  },
+  collector: {
+    token:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhY2E3ZmNkZGU1OGY2YTQwY2Q2MmUyOCIsInJvbGUiOiJjb2xsZWN0b3IiLCJpYXQiOjE3OTE3OTQyODcsImV4cCI6MTc5NDM4NjI4N30.YvpVkTKr8qj1tKSCQIQEblfZS77eFqOo4C2Ly6S6GH0',
+    user: {
+      _id: '6aca7fcdde58f6a40cd62e28',
+      id: '6aca7fcdde58f6a40cd62e28',
+      name: 'Murugan (Top Collector)',
+      phone: '9876500001',
+      role: 'collector',
+      isApproved: true,
+      isOnline: true,
+      language: 'en',
+    },
+    destination: '/collector',
+  },
+  store_staff: {
+    token:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhY2E3ZmNkZGU1OGY2YTQwY2Q2MmUyZiIsInJvbGUiOiJzdG9yZV9zdGFmZiIsImlhdCI6MTc5MTc5NDI4NywiZXhwIjoxNzk0Mzg2Mjg3fQ.RPrdE_4bVFrlG21Z8rEs0nQs8qs2lJeIuSVQWR4apQ8',
+    user: {
+      _id: '6aca7fcdde58f6a40cd62e2f',
+      id: '6aca7fcdde58f6a40cd62e2f',
+      name: 'Warehouse Store Staff',
+      phone: '9876500002',
+      role: 'store_staff',
+      language: 'en',
+    },
+    destination: '/store',
+  },
+  admin: {
+    token:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhY2E3NDQ5YWMwZGZjYzdhNjNhNTkxMCIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc5MTc5NDI4NywiZXhwIjoxNzk0Mzg2Mjg3fQ.35zfnVrVWmPOpiaYI0W72ygK-CWrvAFEa7OoTqsB4H8',
+    user: {
+      _id: '6aca7449ac0dfcc7a63a5910',
+      id: '6aca7449ac0dfcc7a63a5910',
+      name: 'Master Admin',
+      phone: '9999999999',
+      role: 'admin',
+      language: 'en',
+    },
+    destination: '/admin',
+  },
+};
+
 export const LoginPage = () => {
-  const { requestOtp, verifyOtp } = useAuth();
+  const { requestOtp, verifyOtp, loginWithToken } = useAuth();
   const navigate = useNavigate();
 
   const [step, setStep] = useState('phone'); // 'phone' | 'otp'
@@ -18,7 +76,7 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
 
-  // Step 1: Send OTP
+  // Step 1: Send OTP for custom phone numbers
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setError('');
@@ -43,23 +101,13 @@ export const LoginPage = () => {
     }
   };
 
-  // 1-Click Fast Demo Login
-  const handleQuickDemo = async (demoRole, demoPhone) => {
-    setRole(demoRole);
-    setPhone(demoPhone);
+  // 1-Click Fast Demo Login - Instant access without OTP barrier
+  const handleQuickDemo = (demoRole) => {
     setError('');
-    setLoading(true);
-    try {
-      const res = await requestOtp(demoPhone);
-      const code = res?.data?.otp || '123456';
-      setDevOtp(code);
-      setOtp(code);
-      setInfoMessage(res?.data?.otp ? `Demo OTP: ${code}` : 'Enter OTP 123456 to continue');
-      setStep('otp');
-    } catch (err) {
-      setError(err.message || 'Failed to send OTP');
-    } finally {
-      setLoading(false);
+    const account = DEMO_ACCOUNTS[demoRole];
+    if (account) {
+      loginWithToken(account.token, account.user);
+      navigate(account.destination, { replace: true });
     }
   };
 
