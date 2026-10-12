@@ -293,12 +293,49 @@ export const registerWithPassword = async ({
 
   const existing = await User.findOne({
     $or: [{ phone: cleanPhone }, { email: cleanEmail }],
-  });
+  }).select('+password');
+
   if (existing) {
-    if (existing.phone === cleanPhone) {
-      throw new ApiError(400, 'Mobile number already registered. Please sign in with password or OTP.');
+    if (existing.password) {
+      if (existing.phone === cleanPhone) {
+        throw new ApiError(400, 'Mobile number already registered. Please sign in with your password.');
+      }
+      throw new ApiError(400, 'Email address already registered. Please sign in with your password.');
+    } else {
+      // User registered previously via phone without password, update their password and profile
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      existing.name = name?.trim() || existing.name;
+      existing.email = cleanEmail;
+      existing.password = hashedPassword;
+      if (address) existing.address = address.trim();
+      if (role && Object.values(ROLES).includes(role)) existing.role = role;
+      await existing.save();
+
+      const token = jwt.sign(
+        { id: existing._id.toString(), role: existing.role },
+        env.jwtSecret,
+        { expiresIn: '30d' }
+      );
+
+      return {
+        isNewUser: false,
+        token,
+        user: {
+          id: existing._id.toString(),
+          name: existing.name,
+          email: existing.email,
+          phone: existing.phone,
+          role: existing.role,
+          isApproved: existing.isApproved,
+          isOnline: existing.isOnline,
+          rating: existing.rating,
+          language: existing.language || 'en',
+          address: existing.address,
+          location: existing.location,
+        },
+      };
     }
-    throw new ApiError(400, 'Email address already registered. Please sign in with password.');
   }
 
   const salt = await bcrypt.genSalt(10);
