@@ -99,7 +99,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
 
 // POST /api/v1/auth/register
 export const register = asyncHandler(async (req: Request, res: Response) => {
-  const { name, email, phone, password, role, address } = req.body;
+  const { name, email, phone, password, role, address, zoneId } = req.body;
   const result = await authService.registerWithPassword({
     name,
     email,
@@ -107,6 +107,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
     password,
     role,
     address,
+    zoneId,
   });
 
   res.status(201).json({

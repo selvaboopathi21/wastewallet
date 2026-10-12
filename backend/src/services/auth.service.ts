@@ -270,6 +270,7 @@ export const registerWithPassword = async ({
   password,
   role,
   address,
+  zoneId,
 }: {
   name: string;
   email: string;
@@ -277,6 +278,7 @@ export const registerWithPassword = async ({
   password: string;
   role?: UserRole;
   address?: string;
+  zoneId?: string;
 }): Promise<IAuthResponse> => {
   if (!email || !email.includes('@')) {
     throw new ApiError(400, 'Valid email address is compulsory');
@@ -290,6 +292,13 @@ export const registerWithPassword = async ({
 
   const cleanEmail = email.trim().toLowerCase();
   const cleanPhone = phone.trim();
+
+  // Resolve selected zone or fallback to active zone
+  let selectedZoneId: any = zoneId || null;
+  if (!selectedZoneId) {
+    const activeZone = await Zone.findOne({ isActive: true });
+    if (activeZone) selectedZoneId = activeZone._id;
+  }
 
   const existing = await User.findOne({
     $or: [{ phone: cleanPhone }, { email: cleanEmail }],
@@ -310,6 +319,11 @@ export const registerWithPassword = async ({
       existing.password = hashedPassword;
       if (address) existing.address = address.trim();
       if (role && Object.values(ROLES).includes(role)) existing.role = role;
+      if (selectedZoneId) existing.zoneId = selectedZoneId;
+      if (existing.role === 'collector') {
+        existing.isApproved = true;
+        existing.isOnline = true;
+      }
       await existing.save();
 
       const token = jwt.sign(
@@ -342,12 +356,6 @@ export const registerWithPassword = async ({
   const hashedPassword = await bcrypt.hash(password, salt);
 
   const userRole = role && Object.values(ROLES).includes(role) ? role : 'customer';
-  let defaultZoneId = null;
-  if (userRole === 'collector') {
-    const activeZone = await Zone.findOne({ isActive: true });
-    if (activeZone) defaultZoneId = activeZone._id;
-  }
-  const isApproved = userRole === 'collector' ? false : true;
 
   const user = await User.create({
     name: name?.trim() || (userRole === 'collector' ? 'Partner Collector' : 'Customer'),
@@ -356,9 +364,9 @@ export const registerWithPassword = async ({
     password: hashedPassword,
     role: userRole,
     address: address?.trim() || '',
-    isApproved,
-    isOnline: userRole === 'collector' ? false : true,
-    zoneId: defaultZoneId,
+    isApproved: true,
+    isOnline: true,
+    zoneId: selectedZoneId,
   });
 
   const token = jwt.sign(

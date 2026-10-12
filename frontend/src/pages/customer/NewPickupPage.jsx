@@ -18,16 +18,22 @@ import useAuth from '../../hooks/useAuth';
 const PRESET_LOCATIONS = [
   {
     name: 'Anna Nagar (Chennai Central)',
+    zoneId: '6aca7449ac0dfcc7a63a5918',
+    zoneName: 'Chennai Central',
     address: '12, 2nd Avenue, Anna Nagar East, Chennai 600102',
     coords: [80.215, 13.085],
   },
   {
     name: 'Kilpauk (Chennai Central)',
+    zoneId: '6aca7449ac0dfcc7a63a5918',
+    zoneName: 'Chennai Central',
     address: '45, Kilpauk Garden Road, Chennai 600010',
     coords: [80.240, 13.080],
   },
   {
     name: 'Guindy (Chennai South)',
+    zoneId: '6aca7449ac0dfcc7a63a591b',
+    zoneName: 'Chennai South',
     address: '8, Industrial Estate Road, Guindy, Chennai 600032',
     coords: [80.205, 13.006],
   },
@@ -89,6 +95,7 @@ export const NewPickupPage = () => {
         coordinates: coordinates,
         customerPricingPreference: pricingMode === 'mixed' ? 'quick_mixed' : 'best_price_separate',
         preferredTime,
+        zoneId: selectedLocation?.zoneId || '6aca7449ac0dfcc7a63a5918',
       };
 
       const res = await api.post('/pickups', payload);

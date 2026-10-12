@@ -192,7 +192,7 @@ const googleAuthLogin = async ({ email, phone, name, googleId, role, address, })
     };
 };
 exports.googleAuthLogin = googleAuthLogin;
-const registerWithPassword = async ({ name, email, phone, password, role, address, }) => {
+const registerWithPassword = async ({ name, email, phone, password, role, address, zoneId, }) => {
     if (!email || !email.includes('@')) {
         throw new ApiError_1.default(400, 'Valid email address is compulsory');
     }
@@ -204,6 +204,13 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
     }
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phone.trim();
+    // Resolve selected zone or fallback to active zone
+    let selectedZoneId = zoneId || null;
+    if (!selectedZoneId) {
+        const activeZone = await Zone_1.default.findOne({ isActive: true });
+        if (activeZone)
+            selectedZoneId = activeZone._id;
+    }
     const existing = await User_1.default.findOne({
         $or: [{ phone: cleanPhone }, { email: cleanEmail }],
     }).select('+password');
@@ -225,6 +232,12 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
                 existing.address = address.trim();
             if (role && Object.values(constants_1.ROLES).includes(role))
                 existing.role = role;
+            if (selectedZoneId)
+                existing.zoneId = selectedZoneId;
+            if (existing.role === 'collector') {
+                existing.isApproved = true;
+                existing.isOnline = true;
+            }
             await existing.save();
             const token = jsonwebtoken_1.default.sign({ id: existing._id.toString(), role: existing.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
             return {
@@ -249,13 +262,6 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
     const salt = await bcryptjs_1.default.genSalt(10);
     const hashedPassword = await bcryptjs_1.default.hash(password, salt);
     const userRole = role && Object.values(constants_1.ROLES).includes(role) ? role : 'customer';
-    let defaultZoneId = null;
-    if (userRole === 'collector') {
-        const activeZone = await Zone_1.default.findOne({ isActive: true });
-        if (activeZone)
-            defaultZoneId = activeZone._id;
-    }
-    const isApproved = userRole === 'collector' ? false : true;
     const user = await User_1.default.create({
         name: name?.trim() || (userRole === 'collector' ? 'Partner Collector' : 'Customer'),
         email: cleanEmail,
@@ -263,9 +269,9 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
         password: hashedPassword,
         role: userRole,
         address: address?.trim() || '',
-        isApproved,
-        isOnline: userRole === 'collector' ? false : true,
-        zoneId: defaultZoneId,
+        isApproved: true,
+        isOnline: true,
+        zoneId: selectedZoneId,
     });
     const token = jsonwebtoken_1.default.sign({ id: user._id.toString(), role: user.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
     return {

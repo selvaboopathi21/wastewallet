@@ -162,8 +162,11 @@ export const CollectorHome = () => {
           <h2 className="text-xl font-black">
             Vanakkam, {user?.name || 'Partner'}! 🚚
           </h2>
-          <p className="text-xs text-teal-200 mt-0.5">
-            Zone: <span className="font-semibold text-white">Chennai Central</span>
+          <p className="text-xs text-teal-200 mt-0.5 flex items-center gap-1.5">
+            <span>Operating Zone:</span>
+            <span className="font-bold text-white bg-white/20 px-2 py-0.5 rounded-lg">
+              {user?.zoneId?.name || (user?.zoneId === '6aca7449ac0dfcc7a63a591b' ? 'Chennai South (Guindy / Adyar)' : 'Chennai Central (Anna Nagar)')}
+            </span>
           </p>
         </div>
 

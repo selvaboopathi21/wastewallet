@@ -46,7 +46,7 @@ const ApiError_1 = __importDefault(require("../utils/ApiError"));
 /**
  * Creates a new customer scrap pickup request with automatic zone detection
  */
-const createPickupRequest = async ({ customerId, address, coordinates, preferredTime = 'anytime', customerPricingPreference = 'none', files = [], }) => {
+const createPickupRequest = async ({ customerId, address, coordinates, preferredTime = 'anytime', customerPricingPreference = 'none', files = [], zoneId, }) => {
     // 1. Validate address and GPS coordinates
     if (!address || !address.trim()) {
         throw new ApiError_1.default(400, 'Pickup address is required');
@@ -59,8 +59,16 @@ const createPickupRequest = async ({ customerId, address, coordinates, preferred
         throw new ApiError_1.default(400, 'Valid GPS coordinates [longitude, latitude] are required');
     }
     const [lng, lat] = coordinates;
-    // 2. Automatic Zone Detection: Check which collection zone covers this location
-    const detectedZone = await admin_service_1.default.findZoneByCoordinates(lng, lat);
+    // 2. Automatic Zone Detection: Check coordinates, fallback to provided zoneId, or active zone
+    let detectedZone = await admin_service_1.default.findZoneByCoordinates(lng, lat);
+    if (!detectedZone && zoneId) {
+        const Zone = (await Promise.resolve().then(() => __importStar(require('../models/Zone')))).default;
+        detectedZone = await Zone.findById(zoneId);
+    }
+    if (!detectedZone) {
+        const Zone = (await Promise.resolve().then(() => __importStar(require('../models/Zone')))).default;
+        detectedZone = await Zone.findOne({ isActive: true });
+    }
     if (!detectedZone) {
         throw new ApiError_1.default(400, 'Sorry, we do not currently service scrap pickups at this location. Please check our supported collection zones.');
     }

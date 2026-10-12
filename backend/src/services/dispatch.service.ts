@@ -62,19 +62,41 @@ export const dispatchPickupRequest = async (
     throw new ApiError(404, 'Pickup request not found');
   }
 
-  // Find all active, approved, online collectors in this zone (or unassigned zone) who haven't rejected yet
-  const eligibleCollectors = await User.find({
+  // 1. Prioritize active, online collectors strictly in this pickup's zone
+  let eligibleCollectors = await User.find({
     role: 'collector',
     isApproved: true,
     isOnline: true,
     isBlocked: false,
-    $or: [
-      { zoneId: pickup.zoneId },
-      { zoneId: null },
-      { zoneId: { $exists: false } },
-    ],
+    zoneId: pickup.zoneId,
     _id: { $nin: pickup.offeredTo },
   });
+
+  // 2. If none in this specific zone, include collectors with unassigned zones
+  if (eligibleCollectors.length === 0) {
+    eligibleCollectors = await User.find({
+      role: 'collector',
+      isApproved: true,
+      isOnline: true,
+      isBlocked: false,
+      $or: [
+        { zoneId: null },
+        { zoneId: { $exists: false } },
+      ],
+      _id: { $nin: pickup.offeredTo },
+    });
+  }
+
+  // 3. Fallback: If still none, offer to any approved online collector in the city
+  if (eligibleCollectors.length === 0) {
+    eligibleCollectors = await User.find({
+      role: 'collector',
+      isApproved: true,
+      isOnline: true,
+      isBlocked: false,
+      _id: { $nin: pickup.offeredTo },
+    });
+  }
 
   if (eligibleCollectors.length === 0) {
     // If no more collectors are available, keep offered or mark expired

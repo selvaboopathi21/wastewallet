@@ -105,6 +105,21 @@ const FALLBACK_ACCOUNTS = {
   },
 };
 
+const AVAILABLE_ZONES = [
+  {
+    id: '6aca7449ac0dfcc7a63a5918',
+    name: 'Chennai Central',
+    locality: 'Anna Nagar, Kilpauk, Shenoy Nagar, Aminjikarai',
+    tag: 'Zone 1',
+  },
+  {
+    id: '6aca7449ac0dfcc7a63a591b',
+    name: 'Chennai South',
+    locality: 'Guindy, Adyar, Saidapet, Velachery',
+    tag: 'Zone 2',
+  },
+];
+
 export const LoginPage = () => {
   const {
     requestOtp,
@@ -125,6 +140,7 @@ export const LoginPage = () => {
 
   // Form Fields
   const [role, setRole] = useState('customer');
+  const [selectedZoneId, setSelectedZoneId] = useState('6aca7449ac0dfcc7a63a5918');
   const [identifier, setIdentifier] = useState(''); // Email / Username / Phone
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -224,6 +240,7 @@ export const LoginPage = () => {
         password,
         role,
         address: address.trim() || undefined,
+        zoneId: selectedZoneId,
       });
 
       if (user.role === 'collector' && user.isApproved === false) {
@@ -278,7 +295,8 @@ export const LoginPage = () => {
           phone: cleanPhone,
           role: role || 'customer',
           address: address.trim() || 'Anna Nagar, Chennai',
-          isApproved: role === 'collector' ? false : true,
+          zoneId: selectedZoneId,
+          isApproved: true,
           isOnline: true,
           rating: { avg: 5.0, count: 1 },
           language: 'en',
@@ -775,6 +793,57 @@ export const LoginPage = () => {
                         onChange={(e) => setAddress(e.target.value)}
                         className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-750 rounded-xl text-xs font-medium text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-600 resize-none"
                       />
+                    </div>
+                  </div>
+
+                  {/* Operating / Neighborhood Zone Selection */}
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>
+                        {role === 'collector'
+                          ? 'Operating Collection Zone'
+                          : 'Your Scrap Collection Zone'}{' '}
+                        <span className="text-rose-400">* (Compulsory)</span>
+                      </span>
+                      <span className="text-3xs text-emerald-400 font-semibold">100% Direct Match</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {AVAILABLE_ZONES.map((zone) => {
+                        const isSelected = selectedZoneId === zone.id;
+                        return (
+                          <button
+                            key={zone.id}
+                            type="button"
+                            onClick={() => setSelectedZoneId(zone.id)}
+                            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                              isSelected
+                                ? 'bg-emerald-500/15 border-emerald-500 shadow-sm'
+                                : 'bg-slate-900 border-slate-750 hover:border-slate-650'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-2xs font-black uppercase tracking-wider text-emerald-400">
+                                {zone.tag}
+                              </span>
+                              <div
+                                className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                  isSelected
+                                    ? 'border-emerald-500 bg-emerald-500 text-slate-950'
+                                    : 'border-slate-600'
+                                }`}
+                              >
+                                {isSelected && <CheckCircle2 className="w-3 h-3 stroke-[3]" />}
+                              </div>
+                            </div>
+                            <h4 className="text-xs font-black text-white leading-tight">
+                              {zone.name}
+                            </h4>
+                            <p className="text-3xs text-slate-400 mt-0.5 leading-snug">
+                              {zone.locality}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 

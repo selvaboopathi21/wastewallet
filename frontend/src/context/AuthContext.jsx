@@ -144,9 +144,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Step 5: Email + Password Registration
-  const registerWithPassword = async ({ name, email, phone, password, role, address }) => {
+  const registerWithPassword = async ({ name, email, phone, password, role, address, zoneId }) => {
     try {
-      const res = await api.post('/auth/register', { name, email, phone, password, role, address });
+      const res = await api.post('/auth/register', { name, email, phone, password, role, address, zoneId });
       const payload = res?.data?.data || res?.data;
       if (payload?.token && payload?.user) {
         const newToken = payload.token;

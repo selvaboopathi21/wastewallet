@@ -13,6 +13,7 @@ export interface ICreatePickupInput {
   preferredTime?: string;
   customerPricingPreference?: PricingPreference;
   files?: Express.Multer.File[];
+  zoneId?: string;
 }
 
 /**
@@ -25,6 +26,7 @@ export const createPickupRequest = async ({
   preferredTime = 'anytime',
   customerPricingPreference = 'none',
   files = [],
+  zoneId,
 }: ICreatePickupInput): Promise<IPickupRequest> => {
   // 1. Validate address and GPS coordinates
   if (!address || !address.trim()) {
@@ -43,8 +45,16 @@ export const createPickupRequest = async ({
 
   const [lng, lat] = coordinates;
 
-  // 2. Automatic Zone Detection: Check which collection zone covers this location
-  const detectedZone = await adminService.findZoneByCoordinates(lng, lat);
+  // 2. Automatic Zone Detection: Check coordinates, fallback to provided zoneId, or active zone
+  let detectedZone = await adminService.findZoneByCoordinates(lng, lat);
+  if (!detectedZone && zoneId) {
+    const Zone = (await import('../models/Zone')).default;
+    detectedZone = await Zone.findById(zoneId);
+  }
+  if (!detectedZone) {
+    const Zone = (await import('../models/Zone')).default;
+    detectedZone = await Zone.findOne({ isActive: true });
+  }
   if (!detectedZone) {
     throw new ApiError(
       400,
