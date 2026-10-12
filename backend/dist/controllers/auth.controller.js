@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateProfile = exports.getMe = exports.verifyOtp = exports.sendOtp = void 0;
+exports.updateProfile = exports.getMe = exports.googleLogin = exports.verifyOtp = exports.sendOtp = void 0;
 const auth_service_1 = __importDefault(require("../services/auth.service"));
 const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
 // POST /api/v1/auth/send-otp
@@ -24,18 +24,39 @@ exports.sendOtp = (0, asyncHandler_1.default)(async (req, res) => {
 });
 // POST /api/v1/auth/verify-otp
 exports.verifyOtp = (0, asyncHandler_1.default)(async (req, res) => {
-    const { phone, otp, role, name, address, language } = req.body;
+    const { phone, otp, role, name, email, address, language } = req.body;
     const result = await auth_service_1.default.verifyOtpAndLogin({
         phone,
         otp,
         role,
         name,
+        email,
         address,
         language,
     });
     res.status(200).json({
         success: true,
         message: result.isNewUser ? 'User registered and signed in successfully' : 'Signed in successfully',
+        data: {
+            token: result.token,
+            user: result.user,
+        },
+    });
+});
+// POST /api/v1/auth/google
+exports.googleLogin = (0, asyncHandler_1.default)(async (req, res) => {
+    const { email, phone, name, googleId, role, address } = req.body;
+    const result = await auth_service_1.default.googleAuthLogin({
+        email,
+        phone,
+        name,
+        googleId,
+        role,
+        address,
+    });
+    res.status(200).json({
+        success: true,
+        message: result.isNewUser ? 'Account registered with Google successfully' : 'Signed in with Google successfully',
         data: {
             token: result.token,
             user: result.user,
@@ -72,6 +93,7 @@ exports.updateProfile = (0, asyncHandler_1.default)(async (req, res) => {
 exports.default = {
     sendOtp: exports.sendOtp,
     verifyOtp: exports.verifyOtp,
+    googleLogin: exports.googleLogin,
     getMe: exports.getMe,
     updateProfile: exports.updateProfile,
 };

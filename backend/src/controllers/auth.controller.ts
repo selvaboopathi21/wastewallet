@@ -23,20 +23,42 @@ export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
 
 // POST /api/v1/auth/verify-otp
 export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
-  const { phone, otp, role, name, address, language } = req.body;
+  const { phone, otp, role, name, email, address, language } = req.body;
   const result = await authService.verifyOtpAndLogin({
     phone,
     otp,
     role,
     name,
+    email,
     address,
     language,
   });
 
-
   res.status(200).json({
     success: true,
     message: result.isNewUser ? 'User registered and signed in successfully' : 'Signed in successfully',
+    data: {
+      token: result.token,
+      user: result.user,
+    },
+  });
+});
+
+// POST /api/v1/auth/google
+export const googleLogin = asyncHandler(async (req: Request, res: Response) => {
+  const { email, phone, name, googleId, role, address } = req.body;
+  const result = await authService.googleAuthLogin({
+    email,
+    phone,
+    name,
+    googleId,
+    role,
+    address,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: result.isNewUser ? 'Account registered with Google successfully' : 'Signed in with Google successfully',
     data: {
       token: result.token,
       user: result.user,
@@ -78,6 +100,7 @@ export const updateProfile = asyncHandler(async (req: Request, res: Response) =>
 export default {
   sendOtp,
   verifyOtp,
+  googleLogin,
   getMe,
   updateProfile,
 };

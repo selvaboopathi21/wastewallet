@@ -46,8 +46,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Step 2: Verify OTP and save JWT token
-  const verifyOtp = async ({ phone, otp, name, address, role }) => {
-    const res = await api.post('/auth/verify-otp', { phone, otp, name, address, role });
+  const verifyOtp = async ({ phone, otp, name, email, address, role }) => {
+    const res = await api.post('/auth/verify-otp', { phone, otp, name, email, address, role });
     const payload = res?.data?.data || res?.data;
     if (payload?.token && payload?.user) {
       const newToken = payload.token;
@@ -61,6 +61,24 @@ export const AuthProvider = ({ children }) => {
       return newUser;
     }
     throw new Error('Invalid login response from server');
+  };
+
+  // Step 3: Google Login & Registration (Requires both compulsory Email and Mobile Number)
+  const loginWithGoogle = async ({ email, phone, name, googleId, role, address }) => {
+    const res = await api.post('/auth/google', { email, phone, name, googleId, role, address });
+    const payload = res?.data?.data || res?.data;
+    if (payload?.token && payload?.user) {
+      const newToken = payload.token;
+      const newUser = payload.user;
+
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+
+      setToken(newToken);
+      setUser(newUser);
+      return newUser;
+    }
+    throw new Error('Invalid Google login response from server');
   };
 
   // Logout
@@ -112,6 +130,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated: !!token && !!user,
     requestOtp,
     verifyOtp,
+    loginWithGoogle,
     updateProfile,
     loginWithToken,
     logout,

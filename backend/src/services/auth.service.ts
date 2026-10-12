@@ -13,8 +13,18 @@ export interface IVerifyOtpInput {
   otp: string;
   role?: UserRole;
   name?: string;
+  email?: string;
   address?: string;
   language?: Language;
+}
+
+export interface IGoogleAuthInput {
+  email: string;
+  phone: string;
+  name?: string;
+  googleId?: string;
+  role?: UserRole;
+  address?: string;
 }
 
 export interface IAuthResponse {
@@ -23,6 +33,7 @@ export interface IAuthResponse {
   user: {
     id: string;
     name: string;
+    email?: string;
     phone: string;
     role: UserRole;
     isApproved?: boolean;
@@ -47,6 +58,7 @@ export const verifyOtpAndLogin = async ({
   otp,
   role,
   name,
+  email,
   address,
   language,
 }: IVerifyOtpInput): Promise<IAuthResponse> => {
@@ -75,6 +87,7 @@ export const verifyOtpAndLogin = async ({
 
     user = await User.create({
       phone,
+      email: email && email.trim() ? email.trim().toLowerCase() : '',
       name: name && name.trim() ? name.trim() : (userRole === 'collector' ? 'New Collector' : 'Customer'),
       role: userRole,
       address: address && address.trim() ? address.trim() : '',
@@ -85,10 +98,14 @@ export const verifyOtpAndLogin = async ({
     });
     isNewUser = true;
   } else {
-    // Save updated name/address if provided during login/register
+    // Save updated name/email/address if provided during login/register
     let modified = false;
     if (name && name.trim() && user.name !== name.trim()) {
       user.name = name.trim();
+      modified = true;
+    }
+    if (email && email.trim() && user.email !== email.trim().toLowerCase()) {
+      user.email = email.trim().toLowerCase();
       modified = true;
     }
     if (address && address.trim() && user.address !== address.trim()) {
@@ -132,6 +149,107 @@ export const verifyOtpAndLogin = async ({
     user: {
       id: user._id.toString(),
       name: user.name || (user.role === 'collector' ? 'Partner Collector' : 'Customer'),
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isApproved: user.isApproved,
+      isOnline: user.isOnline,
+      rating: user.rating,
+      language: user.language,
+      address: user.address,
+      location: user.location,
+    },
+  };
+};
+
+export const googleAuthLogin = async ({
+  email,
+  phone,
+  name,
+  googleId,
+  role,
+  address,
+}: IGoogleAuthInput): Promise<IAuthResponse> => {
+  if (!email || !email.includes('@')) {
+    throw new ApiError(400, 'Valid email address is compulsory for Google registration');
+  }
+  if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
+    throw new ApiError(400, 'Valid 10-digit Indian mobile number starting with 6-9 is compulsory');
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanPhone = phone.trim();
+
+  // Find user by phone OR by email OR by googleId
+  let user = await User.findOne({
+    $or: [{ phone: cleanPhone }, { email: cleanEmail }, ...(googleId ? [{ googleId }] : [])],
+  });
+
+  let isNewUser = false;
+  if (!user) {
+    const userRole = role && Object.values(ROLES).includes(role) ? role : 'customer';
+    let defaultZoneId = null;
+    if (userRole === 'collector') {
+      const activeZone = await Zone.findOne({ isActive: true });
+      if (activeZone) defaultZoneId = activeZone._id;
+    }
+    const isApproved = userRole === 'collector' ? false : true;
+
+    user = await User.create({
+      phone: cleanPhone,
+      email: cleanEmail,
+      googleId: googleId || '',
+      name: name && name.trim() ? name.trim() : 'Google User',
+      role: userRole,
+      address: address && address.trim() ? address.trim() : '',
+      isApproved,
+      isOnline: userRole === 'collector' ? false : true,
+      zoneId: defaultZoneId,
+    });
+    isNewUser = true;
+  } else {
+    let modified = false;
+    if (!user.email && cleanEmail) {
+      user.email = cleanEmail;
+      modified = true;
+    }
+    if (googleId && !user.googleId) {
+      user.googleId = googleId;
+      modified = true;
+    }
+    if (name && name.trim() && (!user.name || user.name === 'Customer')) {
+      user.name = name.trim();
+      modified = true;
+    }
+    if (address && address.trim() && !user.address) {
+      user.address = address.trim();
+      modified = true;
+    }
+    if (modified) {
+      await user.save();
+    }
+  }
+
+  if (user.isBlocked) {
+    throw new ApiError(403, 'Your account is suspended. Please contact customer support.');
+  }
+
+  const token = jwt.sign(
+    {
+      id: user._id.toString(),
+      role: user.role,
+    },
+    env.jwtSecret,
+    { expiresIn: '30d' }
+  );
+
+  return {
+    isNewUser,
+    token,
+    user: {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
       phone: user.phone,
       role: user.role,
       isApproved: user.isApproved,
@@ -146,11 +264,12 @@ export const verifyOtpAndLogin = async ({
 
 export const updateUserProfile = async (
   userId: string,
-  data: { name?: string; address?: string; language?: Language }
+  data: { name?: string; email?: string; address?: string; language?: Language }
 ) => {
   const user = await User.findById(userId);
   if (!user) throw new ApiError(404, 'User not found');
   if (data.name && data.name.trim()) user.name = data.name.trim();
+  if (data.email && data.email.trim()) user.email = data.email.trim().toLowerCase();
   if (data.address && data.address.trim()) user.address = data.address.trim();
   if (data.language) user.language = data.language;
   await user.save();
@@ -168,6 +287,7 @@ export const getUserProfile = async (userId: string): Promise<IUser> => {
 export default {
   requestOtp,
   verifyOtpAndLogin,
+  googleAuthLogin,
   getUserProfile,
   updateUserProfile,
 };

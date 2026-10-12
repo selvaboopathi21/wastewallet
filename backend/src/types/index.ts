@@ -24,6 +24,8 @@ export interface IUser extends Document {
   _id: Types.ObjectId;
   name: string;
   phone: string;
+  email?: string;
+  googleId?: string;
   role: UserRole;
   address?: string;
   location: IGeoPoint;

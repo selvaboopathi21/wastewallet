@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserProfile = exports.updateUserProfile = exports.verifyOtpAndLogin = exports.requestOtp = void 0;
+exports.getUserProfile = exports.updateUserProfile = exports.googleAuthLogin = exports.verifyOtpAndLogin = exports.requestOtp = void 0;
 // Authentication Service in TypeScript
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const User_1 = __importDefault(require("../models/User"));
@@ -19,7 +19,7 @@ const requestOtp = async (phone) => {
     return await otp_service_1.default.generateAndSaveOtp(phone);
 };
 exports.requestOtp = requestOtp;
-const verifyOtpAndLogin = async ({ phone, otp, role, name, address, language, }) => {
+const verifyOtpAndLogin = async ({ phone, otp, role, name, email, address, language, }) => {
     if (!phone || !otp) {
         throw new ApiError_1.default(400, 'Phone number and OTP code are required');
     }
@@ -40,6 +40,7 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, address, language, })
         const isApproved = userRole === 'collector' ? false : true;
         user = await User_1.default.create({
             phone,
+            email: email && email.trim() ? email.trim().toLowerCase() : '',
             name: name && name.trim() ? name.trim() : (userRole === 'collector' ? 'New Collector' : 'Customer'),
             role: userRole,
             address: address && address.trim() ? address.trim() : '',
@@ -51,10 +52,14 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, address, language, })
         isNewUser = true;
     }
     else {
-        // Save updated name/address if provided during login/register
+        // Save updated name/email/address if provided during login/register
         let modified = false;
         if (name && name.trim() && user.name !== name.trim()) {
             user.name = name.trim();
+            modified = true;
+        }
+        if (email && email.trim() && user.email !== email.trim().toLowerCase()) {
+            user.email = email.trim().toLowerCase();
             modified = true;
         }
         if (address && address.trim() && user.address !== address.trim()) {
@@ -89,6 +94,7 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, address, language, })
         user: {
             id: user._id.toString(),
             name: user.name || (user.role === 'collector' ? 'Partner Collector' : 'Customer'),
+            email: user.email,
             phone: user.phone,
             role: user.role,
             isApproved: user.isApproved,
@@ -101,12 +107,98 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, address, language, })
     };
 };
 exports.verifyOtpAndLogin = verifyOtpAndLogin;
+const googleAuthLogin = async ({ email, phone, name, googleId, role, address, }) => {
+    if (!email || !email.includes('@')) {
+        throw new ApiError_1.default(400, 'Valid email address is compulsory for Google registration');
+    }
+    if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
+        throw new ApiError_1.default(400, 'Valid 10-digit Indian mobile number starting with 6-9 is compulsory');
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim();
+    // Find user by phone OR by email OR by googleId
+    let user = await User_1.default.findOne({
+        $or: [{ phone: cleanPhone }, { email: cleanEmail }, ...(googleId ? [{ googleId }] : [])],
+    });
+    let isNewUser = false;
+    if (!user) {
+        const userRole = role && Object.values(constants_1.ROLES).includes(role) ? role : 'customer';
+        let defaultZoneId = null;
+        if (userRole === 'collector') {
+            const activeZone = await Zone_1.default.findOne({ isActive: true });
+            if (activeZone)
+                defaultZoneId = activeZone._id;
+        }
+        const isApproved = userRole === 'collector' ? false : true;
+        user = await User_1.default.create({
+            phone: cleanPhone,
+            email: cleanEmail,
+            googleId: googleId || '',
+            name: name && name.trim() ? name.trim() : 'Google User',
+            role: userRole,
+            address: address && address.trim() ? address.trim() : '',
+            isApproved,
+            isOnline: userRole === 'collector' ? false : true,
+            zoneId: defaultZoneId,
+        });
+        isNewUser = true;
+    }
+    else {
+        let modified = false;
+        if (!user.email && cleanEmail) {
+            user.email = cleanEmail;
+            modified = true;
+        }
+        if (googleId && !user.googleId) {
+            user.googleId = googleId;
+            modified = true;
+        }
+        if (name && name.trim() && (!user.name || user.name === 'Customer')) {
+            user.name = name.trim();
+            modified = true;
+        }
+        if (address && address.trim() && !user.address) {
+            user.address = address.trim();
+            modified = true;
+        }
+        if (modified) {
+            await user.save();
+        }
+    }
+    if (user.isBlocked) {
+        throw new ApiError_1.default(403, 'Your account is suspended. Please contact customer support.');
+    }
+    const token = jsonwebtoken_1.default.sign({
+        id: user._id.toString(),
+        role: user.role,
+    }, env_1.default.jwtSecret, { expiresIn: '30d' });
+    return {
+        isNewUser,
+        token,
+        user: {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            isApproved: user.isApproved,
+            isOnline: user.isOnline,
+            rating: user.rating,
+            language: user.language,
+            address: user.address,
+            location: user.location,
+        },
+    };
+};
+exports.googleAuthLogin = googleAuthLogin;
 const updateUserProfile = async (userId, data) => {
     const user = await User_1.default.findById(userId);
     if (!user)
         throw new ApiError_1.default(404, 'User not found');
     if (data.name && data.name.trim())
         user.name = data.name.trim();
+    if (data.email && data.email.trim())
+        user.email = data.email.trim().toLowerCase();
     if (data.address && data.address.trim())
         user.address = data.address.trim();
     if (data.language)
@@ -126,6 +218,7 @@ exports.getUserProfile = getUserProfile;
 exports.default = {
     requestOtp: exports.requestOtp,
     verifyOtpAndLogin: exports.verifyOtpAndLogin,
+    googleAuthLogin: exports.googleAuthLogin,
     getUserProfile: exports.getUserProfile,
     updateUserProfile: exports.updateUserProfile,
 };

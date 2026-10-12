@@ -17,6 +17,17 @@ const userSchema = new Schema<IUser>(
       trim: true,
       match: [/^[6-9]\d{9}$/, 'Please enter a valid 10-digit Indian phone number'],
     },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: '',
+    },
+    googleId: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     role: {
       type: String,
       enum: Object.values(ROLES),

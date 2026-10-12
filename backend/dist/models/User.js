@@ -50,6 +50,17 @@ const userSchema = new mongoose_1.Schema({
         trim: true,
         match: [/^[6-9]\d{9}$/, 'Please enter a valid 10-digit Indian phone number'],
     },
+    email: {
+        type: String,
+        trim: true,
+        lowercase: true,
+        default: '',
+    },
+    googleId: {
+        type: String,
+        trim: true,
+        default: '',
+    },
     role: {
         type: String,
         enum: Object.values(constants_1.ROLES),
