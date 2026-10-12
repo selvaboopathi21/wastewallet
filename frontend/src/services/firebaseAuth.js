@@ -43,7 +43,7 @@ export const initFirebase = async () => {
   }
 };
 
-// Sign in with Google Popup
+// 1. Sign in with Google Popup
 export const signInWithGooglePopup = async () => {
   const isConfigured = await initFirebase();
 
@@ -65,7 +65,6 @@ export const signInWithGooglePopup = async () => {
       }
       if (err.code === 'auth/unauthorized-domain') {
         console.warn('Domain not yet authorized in Firebase Console (wastewallet-45e57):', window.location.origin);
-        // Fall back gracefully to modal selector for seamless testing
         return null;
       }
       throw err;
@@ -73,6 +72,66 @@ export const signInWithGooglePopup = async () => {
   }
 
   return null;
+};
+
+// 2. Real Phone SMS OTP via Firebase Phone Authentication
+export const sendFirebasePhoneOtp = async (phoneNumber, containerId = 'recaptcha-container') => {
+  await initFirebase();
+  if (!firebaseAuth) {
+    throw new Error('Firebase Auth not initialized');
+  }
+
+  const { RecaptchaVerifier, signInWithPhoneNumber } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+
+  // Format international +91
+  const digits = phoneNumber.replace(/\D/g, '');
+  const formattedPhone = digits.startsWith('91') && digits.length === 12 
+    ? `+${digits}` 
+    : `+91${digits.slice(-10)}`;
+
+  try {
+    // Clear any previous recaptcha
+    if (window.recaptchaVerifier) {
+      try {
+        window.recaptchaVerifier.clear();
+      } catch {}
+      window.recaptchaVerifier = null;
+    }
+
+    // Ensure container exists
+    let container = document.getElementById(containerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = containerId;
+      document.body.appendChild(container);
+    }
+
+    window.recaptchaVerifier = new RecaptchaVerifier(firebaseAuth, containerId, {
+      size: 'invisible',
+      callback: () => {
+        console.log('Firebase reCAPTCHA solved successfully');
+      },
+      'expired-callback': () => {
+        console.warn('Firebase reCAPTCHA expired');
+      }
+    });
+
+    const confirmationResult = await signInWithPhoneNumber(firebaseAuth, formattedPhone, window.recaptchaVerifier);
+    console.log(`📱 Real Firebase SMS dispatched to ${formattedPhone}`);
+    return {
+      success: true,
+      confirmationResult,
+      phone: formattedPhone,
+    };
+  } catch (err) {
+    console.warn('Firebase Phone Auth SMS attempt:', err.code, err.message);
+    return {
+      success: false,
+      error: err,
+      code: err.code,
+      message: err.message,
+    };
+  }
 };
 
 export const getFirebaseInstance = () => ({
@@ -84,5 +143,6 @@ export const getFirebaseInstance = () => ({
 export default {
   initFirebase,
   signInWithGooglePopup,
+  sendFirebasePhoneOtp,
   getFirebaseInstance,
 };
