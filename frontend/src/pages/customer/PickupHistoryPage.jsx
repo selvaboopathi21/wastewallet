@@ -7,6 +7,7 @@ import {
   Scale,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -60,15 +61,24 @@ export const PickupHistoryPage = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header with Back Button */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-black text-slate-900">My Scrap Pickups</h2>
-          <p className="text-xs text-slate-500">Track pickups and review past sales</p>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => navigate('/customer')}
+            className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all text-slate-700 shadow-xs cursor-pointer active:scale-95"
+            title="Go Back to Home"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-base font-black text-slate-900 leading-tight">My Scrap Pickups</h2>
+            <p className="text-2xs text-slate-500">Track pickups and review past sales</p>
+          </div>
         </div>
         <button
           onClick={() => navigate('/customer/new-pickup')}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1 shadow-xs cursor-pointer"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
         >
           <Sparkles className="w-3.5 h-3.5" />
           New Pickup

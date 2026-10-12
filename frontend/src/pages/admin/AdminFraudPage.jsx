@@ -1,5 +1,6 @@
 // AdminFraudPage: Fraud anomaly triage, weight divergence analysis, and collector audit
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert,
   AlertTriangle,
@@ -10,10 +11,12 @@ import {
   Search,
   Building,
   RefreshCw,
+  ArrowLeft,
 } from 'lucide-react';
 import api from '../../api/axios';
 
 export const AdminFraudPage = () => {
+  const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState('');
@@ -51,15 +54,24 @@ export const AdminFraudPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Title */}
+      {/* Header with Back Button */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">
-            Fraud & Anomaly Intelligence
-          </h2>
-          <p className="text-xs text-slate-500">
-            Real-time heuristic auditing of collector weight loss divergence and rate downgrading
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/admin')}
+            className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all text-slate-700 shadow-xs cursor-pointer active:scale-95 shrink-0"
+            title="Go Back to Admin Dashboard"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              Fraud & Anomaly Intelligence
+            </h2>
+            <p className="text-xs text-slate-500">
+              Real-time heuristic auditing of collector weight loss divergence and rate downgrading
+            </p>
+          </div>
         </div>
 
         <button

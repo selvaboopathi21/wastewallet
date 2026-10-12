@@ -1,7 +1,7 @@
 // CustomerHome: Household scrap seller main landing view
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, TrendingUp, Sparkles, MapPin, ShieldCheck } from 'lucide-react';
+import { PlusCircle, TrendingUp, Sparkles, MapPin, ShieldCheck, ArrowRight } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 
 export const CustomerHome = () => {
@@ -12,7 +12,7 @@ export const CustomerHome = () => {
     <div className="space-y-5">
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div>
             <span className="text-xs font-semibold bg-emerald-500/30 text-emerald-100 px-2.5 py-1 rounded-full uppercase tracking-wider">
               Household Seller
@@ -24,6 +24,14 @@ export const CustomerHome = () => {
               Turn your household scrap into instant cash at certified rate cards.
             </p>
           </div>
+          <button
+            onClick={() => navigate('/customer/profile')}
+            className="text-xs font-bold bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-xl transition-all flex items-center gap-1 cursor-pointer shadow-2xs shrink-0 self-start"
+            title="Edit Profile & Zone"
+          >
+            <span>Profile</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 

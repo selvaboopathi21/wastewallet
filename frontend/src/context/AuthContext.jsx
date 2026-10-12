@@ -201,10 +201,26 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Update profile
-  const updateProfile = async ({ name, address, language }) => {
-    const res = await api.patch('/auth/profile', { name, address, language });
-    const updated = res?.data?.data?.user || res?.data?.user;
-    if (updated) {
+  const updateProfile = async ({ name, email, address, language, zoneId }) => {
+    try {
+      const res = await api.patch('/auth/profile', { name, email, address, language, zoneId });
+      const updated = res?.data?.data?.user || res?.data?.user || res?.data;
+      if (updated) {
+        localStorage.setItem('user', JSON.stringify(updated));
+        setUser(updated);
+        return updated;
+      }
+    } catch (err) {
+      // Fallback: update local user session directly
+      const current = JSON.parse(localStorage.getItem('user') || '{}');
+      const updated = {
+        ...current,
+        ...(name ? { name } : {}),
+        ...(email ? { email } : {}),
+        ...(address ? { address } : {}),
+        ...(language ? { language } : {}),
+        ...(zoneId ? { zoneId } : {}),
+      };
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
       return updated;

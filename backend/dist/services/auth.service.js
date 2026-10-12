@@ -354,6 +354,8 @@ const updateUserProfile = async (userId, data) => {
         user.address = data.address.trim();
     if (data.language)
         user.language = data.language;
+    if (data.zoneId)
+        user.zoneId = data.zoneId;
     await user.save();
     return user;
 };

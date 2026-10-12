@@ -1,7 +1,7 @@
 // CollectorLayout: Mobile-first navigation layout for scrap collectors
 import React from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Truck, Layers, Star, LogOut, ShieldCheck } from 'lucide-react';
+import { Truck, Layers, Star, LogOut, ShieldCheck, User } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
 export const CollectorLayout = () => {
@@ -78,6 +78,18 @@ export const CollectorLayout = () => {
           >
             <Layers className="w-5 h-5" />
             <span>Daily Batches</span>
+          </NavLink>
+
+          <NavLink
+            to="/collector/profile"
+            className={({ isActive }) =>
+              `flex flex-col items-center gap-1 text-xs font-medium py-1 px-3 rounded-lg transition-colors ${
+                isActive ? 'text-amber-600 font-semibold' : 'text-slate-500 hover:text-slate-800'
+              }`
+            }
+          >
+            <User className="w-5 h-5" />
+            <span>Profile</span>
           </NavLink>
         </div>
       </nav>

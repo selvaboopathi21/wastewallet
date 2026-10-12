@@ -159,9 +159,19 @@ export const CollectorHome = () => {
         </div>
 
         <div>
-          <h2 className="text-xl font-black">
-            Vanakkam, {user?.name || 'Partner'}! 🚚
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black">
+              Vanakkam, {user?.name || 'Partner'}! 🚚
+            </h2>
+            <button
+              onClick={() => navigate('/collector/profile')}
+              className="text-2xs font-bold bg-white/20 hover:bg-white/30 text-white px-2.5 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+              title="Edit Partner Profile & Operating Zone"
+            >
+              <span>Profile</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <p className="text-xs text-teal-200 mt-0.5 flex items-center gap-1.5">
             <span>Operating Zone:</span>
             <span className="font-bold text-white bg-white/20 px-2 py-0.5 rounded-lg">

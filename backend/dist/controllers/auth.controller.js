@@ -74,13 +74,15 @@ exports.getMe = (0, asyncHandler_1.default)(async (req, res) => {
         },
     });
 });
-// PATCH /api/v1/auth/profile (Update name, address, language)
+// PATCH /api/v1/auth/profile (Update name, address, language, email, zoneId)
 exports.updateProfile = (0, asyncHandler_1.default)(async (req, res) => {
-    const { name, address, language } = req.body;
+    const { name, email, address, language, zoneId } = req.body;
     const user = await auth_service_1.default.updateUserProfile(req.user._id.toString(), {
         name,
+        email,
         address,
         language,
+        zoneId,
     });
     res.status(200).json({
         success: true,

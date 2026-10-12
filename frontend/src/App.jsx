@@ -23,6 +23,7 @@ import LiveTrackingPage from './pages/customer/LiveTrackingPage';
 import CollectorHome from './pages/collector/CollectorHome';
 import CollectorJobCard from './pages/collector/CollectorJobCard';
 import CollectorBatchPage from './pages/collector/CollectorBatchPage';
+import CollectorProfilePage from './pages/collector/CollectorProfilePage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminRatesPage from './pages/admin/AdminRatesPage';
 import AdminFraudPage from './pages/admin/AdminFraudPage';
@@ -86,6 +87,7 @@ export const App = () => {
                 <Route path="/collector/pickups/:id" element={<CollectorJobCard />} />
                 <Route path="/collector/batch" element={<CollectorBatchPage />} />
                 <Route path="/collector/batches" element={<CollectorBatchPage />} />
+                <Route path="/collector/profile" element={<CollectorProfilePage />} />
               </Route>
             </Route>
 

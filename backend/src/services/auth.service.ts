@@ -461,7 +461,7 @@ export const loginWithPassword = async ({
 
 export const updateUserProfile = async (
   userId: string,
-  data: { name?: string; email?: string; address?: string; language?: Language }
+  data: { name?: string; email?: string; address?: string; language?: Language; zoneId?: string }
 ) => {
   const user = await User.findById(userId);
   if (!user) throw new ApiError(404, 'User not found');
@@ -469,6 +469,7 @@ export const updateUserProfile = async (
   if (data.email && data.email.trim()) user.email = data.email.trim().toLowerCase();
   if (data.address && data.address.trim()) user.address = data.address.trim();
   if (data.language) user.language = data.language;
+  if (data.zoneId) user.zoneId = data.zoneId as any;
   await user.save();
   return user;
 };

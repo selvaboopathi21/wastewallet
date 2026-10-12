@@ -1,5 +1,6 @@
 // AdminRatesPage: Real-time scrap rate card editor in paise & service zone status toggles
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   DollarSign,
   MapPin,
@@ -9,10 +10,12 @@ import {
   RotateCcw,
   Sparkles,
   Layers,
+  ArrowLeft,
 } from 'lucide-react';
 import api from '../../api/axios';
 
 export const AdminRatesPage = () => {
+  const navigate = useNavigate();
   const [rates, setRates] = useState([]);
   const [zones, setZones] = useState([]);
   const [editingRates, setEditingRates] = useState({});
@@ -97,14 +100,23 @@ export const AdminRatesPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Title */}
-      <div>
-        <h2 className="text-xl font-black text-slate-900 tracking-tight">
-          Scrap Rate Cards & Geospatial Zones
-        </h2>
-        <p className="text-xs text-slate-500">
-          Modify per-kilogram price cards in real-time and toggle service zone boundaries
-        </p>
+      {/* Header with Back Button */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => navigate('/admin')}
+          className="w-10 h-10 flex items-center justify-center bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all text-slate-700 shadow-xs cursor-pointer active:scale-95 shrink-0"
+          title="Go Back to Admin Dashboard"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            Scrap Rate Cards & Geospatial Zones
+          </h2>
+          <p className="text-xs text-slate-500">
+            Modify per-kilogram price cards in real-time and toggle service zone boundaries
+          </p>
+        </div>
       </div>
 
       {message && (

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
+  ArrowLeft,
   Truck,
   Building,
   Sparkles,
@@ -163,14 +164,23 @@ export const StoreIntakePage = () => {
 
   return (
     <div className="space-y-4">
-      {/* Title */}
-      <div>
-        <h2 className="text-base font-black text-slate-900 leading-tight">
-          Collector Batch Intake & Weighing
-        </h2>
-        <p className="text-2xs text-slate-500">
-          Scan collector deposit QR codes, verify gross weights, and calculate loss percentage
-        </p>
+      {/* Title with Back Button */}
+      <div className="flex items-center gap-2.5">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-9 h-9 flex items-center justify-center bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition-all text-slate-700 shadow-xs cursor-pointer active:scale-95 shrink-0"
+          title="Go Back"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-base font-black text-slate-900 leading-tight">
+            Collector Batch Intake & Weighing
+          </h2>
+          <p className="text-2xs text-slate-500">
+            Scan collector deposit QR codes, verify gross weights, and calculate loss percentage
+          </p>
+        </div>
       </div>
 
       {liveAlert && (
