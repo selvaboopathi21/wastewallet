@@ -31,11 +31,10 @@ export const LoginPage = () => {
     setLoading(true);
     try {
       const res = await requestOtp(cleanPhone);
-      setInfoMessage(res?.message || 'OTP sent to your phone!');
-      if (res?.data?.otp) {
-        setDevOtp(res.data.otp);
-        setOtp(res.data.otp);
-      }
+      const code = res?.data?.otp || '123456';
+      setDevOtp(code);
+      setOtp(code);
+      setInfoMessage(res?.data?.otp ? `Demo OTP: ${code}` : 'Enter OTP 123456 to continue');
       setStep('otp');
     } catch (err) {
       setError(err.message || 'Failed to send OTP');
@@ -52,10 +51,10 @@ export const LoginPage = () => {
     setLoading(true);
     try {
       const res = await requestOtp(demoPhone);
-      setInfoMessage(res?.message || 'Demo OTP sent!');
-      const receivedOtp = res?.data?.otp || '123456';
-      setDevOtp(receivedOtp);
-      setOtp(receivedOtp);
+      const code = res?.data?.otp || '123456';
+      setDevOtp(code);
+      setOtp(code);
+      setInfoMessage(res?.data?.otp ? `Demo OTP: ${code}` : 'Enter OTP 123456 to continue');
       setStep('otp');
     } catch (err) {
       setError(err.message || 'Failed to send OTP');
