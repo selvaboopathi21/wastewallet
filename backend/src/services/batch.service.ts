@@ -173,12 +173,15 @@ export const sortBatchMaterials = async (
     throw new ApiError(404, 'Batch not found');
   }
 
-  if (batch.status !== 'received') {
+  if (batch.status !== 'received' && batch.status !== 'sorted') {
     throw new ApiError(
       400,
-      `Batch cannot be sorted. It must be in "received" status, but is currently "${batch.status}".`
+      `Batch cannot be sorted. It must be in "received" or "sorted" status, but is currently "${batch.status}".`
     );
   }
+
+  // Clear previous sorted records if re-sorting
+  await SortedMaterial.deleteMany({ batchId: batch._id });
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     throw new ApiError(400, 'At least one sorted material item is required');

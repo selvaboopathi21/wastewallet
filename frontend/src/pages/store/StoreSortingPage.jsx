@@ -1,6 +1,6 @@
 // StoreSortingPage: Sort received scrap into material streams and automatically route to verified recycling buyers
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Boxes,
   Truck,
@@ -12,6 +12,11 @@ import {
   Sparkles,
   Building2,
   Layers,
+  User,
+  Scale,
+  RotateCcw,
+  Clock,
+  ExternalLink,
 } from 'lucide-react';
 import api from '../../api/axios';
 
@@ -59,9 +64,16 @@ export const StoreSortingPage = () => {
   const { id: urlBatchId } = useParams();
   const navigate = useNavigate();
 
-  const [batches, setBatches] = useState([]);
+  // Tab: 'received' (awaiting stream sorting) vs 'sorted' (manifest generated)
+  const [tab, setTab] = useState('received');
+
+  const [allBatches, setAllBatches] = useState([]);
   const [selectedBatchId, setSelectedBatchId] = useState(urlBatchId || '');
   const [batchDetails, setBatchDetails] = useState(null);
+  const [pickupItems, setPickupItems] = useState([]);
+  const [savedSortedMaterials, setSavedSortedMaterials] = useState([]);
+  const [isEditingSorted, setIsEditingSorted] = useState(false);
+
   const [weights, setWeights] = useState({
     copper_wire: '',
     battery: '',
@@ -69,22 +81,42 @@ export const StoreSortingPage = () => {
     plastic: '',
     iron: '',
   });
+
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [quickIntaking, setQuickIntaking] = useState(false);
   const [routingResults, setRoutingResults] = useState(null);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
-  // Fetch batches ready for sorting (status: 'received')
+  // Fetch batches from backend
   const fetchBatches = async () => {
     try {
-      const res = await api.get('/batches');
+      const res = await api.get('/batches?view=store');
       const list = res?.data?.data?.batches || res?.data?.batches || [];
-      const receivedList = list.filter((b) => b.status === 'received');
-      setBatches(receivedList);
+      setAllBatches(list);
 
-      if (!selectedBatchId && receivedList.length > 0) {
-        setSelectedBatchId(receivedList[0]._id);
-      }
+      const receivedList = list.filter((b) => b.status === 'received');
+      const sortedList = list.filter((b) => b.status === 'sorted');
+
+      // Auto-select batch if none selected
+      setSelectedBatchId((prevId) => {
+        if (prevId && list.some((b) => b._id === prevId)) {
+          return prevId;
+        }
+        if (urlBatchId && list.some((b) => b._id === urlBatchId)) {
+          return urlBatchId;
+        }
+        if (receivedList.length > 0) {
+          setTab('received');
+          return receivedList[0]._id;
+        }
+        if (sortedList.length > 0) {
+          setTab('sorted');
+          return sortedList[0]._id;
+        }
+        return '';
+      });
     } catch (err) {
       console.error('Error fetching batches:', err);
     }
@@ -92,17 +124,42 @@ export const StoreSortingPage = () => {
 
   useEffect(() => {
     fetchBatches();
-  }, []);
+  }, [urlBatchId]);
 
   // Fetch specific batch details
   const fetchBatchDetails = async (bId) => {
-    if (!bId) return;
+    if (!bId) {
+      setBatchDetails(null);
+      setPickupItems([]);
+      setSavedSortedMaterials([]);
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.get(`/batches/${bId}`);
       const data = res?.data?.data || res?.data;
-      setBatchDetails(data?.batch || data);
+      const bObj = data?.batch || data;
+      setBatchDetails(bObj);
+      setPickupItems(data?.pickupItems || []);
+      const existingSorted = data?.sortedMaterials || [];
+      setSavedSortedMaterials(existingSorted);
+
+      // Pre-fill weights if already sorted
+      if (existingSorted.length > 0) {
+        const prefill = { copper_wire: '', battery: '', ewaste: '', plastic: '', iron: '' };
+        existingSorted.forEach((sm) => {
+          if (prefill[sm.materialType] !== undefined) {
+            prefill[sm.materialType] = sm.weightKg?.toString() || '';
+          }
+        });
+        setWeights(prefill);
+      } else {
+        // Clear weights for new un-sorted batch
+        setWeights({ copper_wire: '', battery: '', ewaste: '', plastic: '', iron: '' });
+      }
+
       setRoutingResults(null);
+      setIsEditingSorted(false);
       setError('');
     } catch (err) {
       setError(err.message || 'Could not load batch details');
@@ -117,10 +174,52 @@ export const StoreSortingPage = () => {
     }
   }, [selectedBatchId]);
 
+  // Auto-fill weights from Doorstep Collected Items
+  const handleAutoFillFromDoorstep = () => {
+    if (!pickupItems || pickupItems.length === 0) return;
+    const newWeights = { copper_wire: '', battery: '', ewaste: '', plastic: '', iron: '' };
+    pickupItems.forEach((item) => {
+      const cat = item.category || item.materialType;
+      if (newWeights[cat] !== undefined) {
+        const cur = parseFloat(newWeights[cat]) || 0;
+        newWeights[cat] = (cur + (item.weightKg || 0)).toString();
+      }
+    });
+    setWeights(newWeights);
+    setSuccessMsg('✓ Stream weights auto-filled from doorstep pickup items!');
+    setTimeout(() => setSuccessMsg(''), 4000);
+  };
+
+  // Quick-Intake a deposited batch directly from this page
+  const handleQuickIntake = async (batchToReceive) => {
+    setQuickIntaking(true);
+    setError('');
+    try {
+      const targetWeight =
+        batchToReceive.depositedWeightKg ?? batchToReceive.totalWeightDepositedKg ?? 1.0;
+      const res = await api.post(`/batches/${encodeURIComponent(batchToReceive.qrCode)}/receive`, {
+        receivedWeightKg: targetWeight,
+      });
+      const received = res?.data?.batch || res?.data?.data?.batch;
+      setSuccessMsg(`✓ Batch ${batchToReceive.qrCode} received at ${targetWeight} kg!`);
+      await fetchBatches();
+      if (received?._id) {
+        setSelectedBatchId(received._id);
+        setTab('received');
+      }
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      setError(err.message || 'Failed to intake batch');
+    } finally {
+      setQuickIntaking(false);
+    }
+  };
+
   // Submit sorting
   const handleSortSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccessMsg('');
 
     if (!selectedBatchId) {
       return setError('Please select a batch to sort');
@@ -142,8 +241,17 @@ export const StoreSortingPage = () => {
     try {
       const res = await api.post(`/batches/${selectedBatchId}/sort`, { items });
       const data = res?.data?.data || res?.data;
-      setRoutingResults(data?.sortedMaterials || []);
+      const createdSorted = data?.sortedMaterials || [];
+      setRoutingResults(createdSorted);
+      setSavedSortedMaterials(createdSorted);
+      setIsEditingSorted(false);
+
+      if (batchDetails) {
+        setBatchDetails({ ...batchDetails, status: 'sorted' });
+      }
+
       await fetchBatches();
+      setSuccessMsg('✓ Material streams sorted and dispatched to industrial buyers successfully!');
     } catch (err) {
       setError(err.message || 'Failed to sort batch');
     } finally {
@@ -151,10 +259,23 @@ export const StoreSortingPage = () => {
     }
   };
 
+  const receivedBatches = allBatches.filter((b) => b.status === 'received');
+  const sortedBatches = allBatches.filter((b) => b.status === 'sorted');
+  const depositedBatches = allBatches.filter((b) => ['deposited', 'created'].includes(b.status));
+
+  const currentList = tab === 'received' ? receivedBatches : sortedBatches;
+
   const totalSortedKg = Object.values(weights).reduce(
     (sum, val) => sum + (parseFloat(val) || 0),
     0
   );
+
+  const scaleDeliveredKg = batchDetails
+    ? batchDetails.receivedWeightKg ?? batchDetails.depositedWeightKg ?? 0
+    : 0;
+
+  const weightDiff = (totalSortedKg - scaleDeliveredKg).toFixed(1);
+  const isPerfectMatch = Math.abs(totalSortedKg - scaleDeliveredKg) < 0.05 && scaleDeliveredKg > 0;
 
   return (
     <div className="space-y-4">
@@ -184,14 +305,118 @@ export const StoreSortingPage = () => {
         </div>
       )}
 
+      {successMsg && (
+        <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-800 text-xs font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {/* Deposited Batches Notice (Quick-Intake Available) */}
+      {depositedBatches.length > 0 && (
+        <div className="p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-3xl text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-amber-900 flex items-center gap-1.5">
+              <span>🚚</span>
+              <span>
+                {depositedBatches.length} Collector Batch{depositedBatches.length > 1 ? 'es' : ''} Awaiting Warehouse Intake
+              </span>
+            </span>
+            <Link
+              to="/store"
+              className="text-2xs font-bold text-amber-800 hover:text-amber-950 underline flex items-center gap-0.5"
+            >
+              <span>Scan in Intake</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          <div className="space-y-1.5">
+            {depositedBatches.map((db) => (
+              <div
+                key={db._id}
+                className="bg-white/90 p-2.5 rounded-2xl border border-amber-200 flex items-center justify-between text-2xs"
+              >
+                <div>
+                  <span className="font-mono font-bold text-slate-900">{db.qrCode}</span>
+                  <span className="text-slate-500 ml-1.5">
+                    ({db.collectorId?.name || 'Collector'}) • Deposited: <strong>{db.depositedWeightKg} kg</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={quickIntaking}
+                  onClick={() => handleQuickIntake(db)}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-3xs transition-transform active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  ⚡ Quick Intake & Sort
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tab Switcher: Ready for Sorting vs Already Sorted */}
+      <div className="flex bg-slate-200/80 p-1 rounded-2xl text-xs font-bold">
+        <button
+          type="button"
+          onClick={() => {
+            setTab('received');
+            if (receivedBatches.length > 0) {
+              setSelectedBatchId(receivedBatches[0]._id);
+            }
+          }}
+          className={`flex-1 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            tab === 'received'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Boxes className="w-4 h-4 text-emerald-600" />
+          <span>Ready for Sorting ({receivedBatches.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setTab('sorted');
+            if (sortedBatches.length > 0) {
+              setSelectedBatchId(sortedBatches[0]._id);
+            }
+          }}
+          className={`flex-1 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            tab === 'sorted'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          <span>Sorted & Dispatched ({sortedBatches.length})</span>
+        </button>
+      </div>
+
       {/* Batch Selector */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-2">
-        <label className="block text-2xs font-bold text-slate-600 uppercase">
-          Select Received Batch for Sorting
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-2.5">
+        <label className="block text-2xs font-bold text-slate-600 uppercase tracking-wider">
+          {tab === 'received' ? 'Select Received Batch to Sort' : 'Select Sorted Batch Manifest'}
         </label>
-        {batches.length === 0 && !batchDetails ? (
-          <div className="p-3 bg-slate-50 rounded-2xl text-xs text-slate-500 text-center font-medium">
-            No batches in "received" status. Scan and weigh a batch in the QR Intake tab first!
+
+        {currentList.length === 0 ? (
+          <div className="p-4 bg-slate-50 rounded-2xl text-xs text-slate-500 text-center font-medium space-y-2">
+            <p>
+              {tab === 'received'
+                ? 'No batches currently awaiting sorting in "received" status.'
+                : 'No batches sorted yet.'}
+            </p>
+            {tab === 'received' && (
+              <button
+                onClick={() => navigate('/store')}
+                className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 cursor-pointer"
+              >
+                Go to QR Intake to Receive Batches ➔
+              </button>
+            )}
           </div>
         ) : (
           <select
@@ -199,38 +424,126 @@ export const StoreSortingPage = () => {
             onChange={(e) => setSelectedBatchId(e.target.value)}
             className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
-            {batches.map((b) => (
-              <option key={b._id} value={b._id}>
-                {b.qrCode} ({b.receivedWeightKg ?? b.totalWeightReceivedKg ?? b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg)
-              </option>
-            ))}
+            {currentList.map((b) => {
+              const customerNames = b.pickupRequestIds?.map((p) => p.customerId?.name).filter(Boolean).join(', ') || '';
+              const weightVal = b.receivedWeightKg ?? b.depositedWeightKg ?? 0;
+              return (
+                <option key={b._id} value={b._id}>
+                  {b.qrCode} — {b.collectorId?.name || 'Collector'} {customerNames ? `[${customerNames}]` : ''} ({weightVal} kg)
+                </option>
+              );
+            })}
           </select>
         )}
 
+        {/* Selected Batch Traceability Summary Card */}
         {batchDetails && (
-          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-2xs">
-            <span className="text-slate-500">
-              Warehouse Scale Weight: <strong className="text-slate-800">{batchDetails.receivedWeightKg ?? batchDetails.totalWeightReceivedKg ?? batchDetails.depositedWeightKg ?? 0} kg</strong>
-            </span>
-            <span className="text-slate-500">
-              Loss: <strong className="text-emerald-700">{batchDetails.lossPercent ?? 0}%</strong>
-            </span>
+          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-2xs space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+              <div>
+                <span className="text-3xs uppercase font-bold text-slate-400 block">Collector Handover</span>
+                <span className="font-bold text-slate-900 text-xs">
+                  {batchDetails.collectorId?.name || 'Partner Collector'} ({batchDetails.collectorId?.phone || 'Verified'})
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-3xs uppercase font-bold text-slate-400 block">Warehouse Scale</span>
+                <span className="font-mono font-black text-emerald-700 text-xs">
+                  {scaleDeliveredKg.toFixed(1)} kg
+                </span>
+                <span className="text-3xs text-slate-400 ml-1">
+                  (Loss: {batchDetails.lossPercent ?? 0}%)
+                </span>
+              </div>
+            </div>
+
+            {/* Customer Doorstep Visits Included */}
+            {batchDetails.pickupRequestIds && batchDetails.pickupRequestIds.length > 0 && (
+              <div>
+                <span className="text-3xs uppercase font-bold text-slate-400 block mb-1">
+                  Doorstep Customer Visits in this Batch ({batchDetails.pickupRequestIds.length})
+                </span>
+                <div className="space-y-1">
+                  {batchDetails.pickupRequestIds.map((p, pIdx) => (
+                    <div
+                      key={p._id || pIdx}
+                      className="bg-white p-2 rounded-xl border border-slate-200/70 flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-800">
+                          {p.customerId?.name || 'Customer'}
+                        </span>
+                        <span className="text-slate-400 ml-1.5 font-mono">
+                          • {p.address || 'Address on record'}
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-700">
+                        {p.totalPickupWeightKg || 0} kg
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Doorstep Collected Scrap Categories & Auto-Fill button */}
+            {pickupItems.length > 0 && (
+              <div className="pt-2 border-t border-slate-200/60">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-3xs uppercase font-bold text-slate-500">
+                    Doorstep Scrap Items Collected ({pickupItems.length})
+                  </span>
+                  {(!batchDetails || batchDetails.status === 'received' || isEditingSorted) && (
+                    <button
+                      type="button"
+                      onClick={handleAutoFillFromDoorstep}
+                      className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded-lg text-3xs cursor-pointer flex items-center gap-1 active:scale-95"
+                    >
+                      <Sparkles className="w-3 h-3 text-emerald-700" />
+                      <span>Auto-Fill Stream Weights</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {pickupItems.map((pi, piIdx) => (
+                    <span
+                      key={pi._id || piIdx}
+                      className="px-2 py-1 bg-white rounded-lg border border-slate-200 font-mono font-bold text-slate-800 text-3xs flex items-center gap-1"
+                    >
+                      <span className="capitalize">{(pi.category || pi.materialType || '').replace('_', ' ')}:</span>
+                      <span className="text-emerald-700">{pi.weightKg} kg</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Sorting Form */}
-      {batchDetails && batchDetails.status === 'received' && !routingResults && (
+      {/* VIEW A: Active Sorting Form for Received Batch (or when re-sorting) */}
+      {batchDetails && (batchDetails.status === 'received' || isEditingSorted) && !routingResults && (
         <form onSubmit={handleSortSubmit} className="space-y-4">
-          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3">
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
                 <Boxes className="w-4 h-4 text-emerald-600" />
                 Sort into Certified Streams
               </h3>
-              <span className="text-2xs font-mono font-bold text-slate-500">
-                Sorted: {totalSortedKg.toFixed(1)} kg / {batchDetails.totalWeightReceivedKg} kg
-              </span>
+
+              <div className="text-right">
+                <span className="text-2xs font-mono font-bold block text-slate-700">
+                  Sorted: <span className="text-emerald-700 font-black">{totalSortedKg.toFixed(1)} kg</span> / {scaleDeliveredKg.toFixed(1)} kg
+                </span>
+                {isPerfectMatch ? (
+                  <span className="text-3xs font-bold text-emerald-700 block">✓ Perfectly Balanced</span>
+                ) : (
+                  <span className="text-3xs text-slate-400 block font-mono">
+                    {weightDiff > 0 ? `+${weightDiff} kg surplus` : `${weightDiff} kg remaining`}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2.5">
@@ -281,20 +594,20 @@ export const StoreSortingPage = () => {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all disabled:opacity-50 active:scale-98"
             >
-              <Sparkles className="w-4 h-4" />
-              {submitting ? 'Routing to Recyclers...' : 'Confirm Sorting & Route to Buyers'}
+              <Sparkles className="w-4 h-4 text-emerald-200" />
+              <span>{submitting ? 'Routing to Industrial Recyclers...' : 'Confirm Sorting & Route to Buyers ➔'}</span>
             </button>
           </div>
         </form>
       )}
 
-      {/* Recycler Buyer Routing Results Card */}
+      {/* VIEW B: Newly Generated Routing Manifest Celebration Card */}
       {routingResults && routingResults.length > 0 && (
         <div className="bg-emerald-50 border-2 border-emerald-400 rounded-3xl p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
+            <CheckCircle2 className="w-6 h-6 text-emerald-700 shrink-0" />
             <div>
               <h4 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
                 Recycler Routing Manifest Generated!
@@ -316,28 +629,105 @@ export const StoreSortingPage = () => {
                     {mat.materialType.replace('_', ' ')}
                   </p>
                   <p className="text-2xs text-slate-500">
-                    Destination: <strong className="text-slate-800">{mat.destinationBuyerId?.name || 'Assigned Recycler Partner'}</strong>
+                    Buyer Channel: <strong className="text-slate-800">{mat.destinationBuyerId?.name || 'Metro Smelters / Licensed Partner'}</strong>
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="font-mono font-black text-emerald-700">{mat.weightKg} kg</span>
+                  <span className="font-mono font-black text-emerald-700 text-sm">{mat.weightKg} kg</span>
                   {mat.isSpecialHandling && (
-                    <span className="block text-2xs font-bold text-amber-700">⚠️ Special Safe</span>
+                    <span className="block text-3xs font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                      ⚠️ Special Handling
+                    </span>
                   )}
                 </div>
               </div>
             ))}
           </div>
 
-          <button
-            onClick={() => {
-              setRoutingResults(null);
-              fetchBatches();
-            }}
-            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-3 rounded-xl text-xs cursor-pointer"
-          >
-            Sort Another Batch
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setRoutingResults(null);
+                fetchBatches();
+              }}
+              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-3 rounded-xl text-xs cursor-pointer text-center"
+            >
+              Sort Another Batch ➔
+            </button>
+            <button
+              onClick={() => {
+                setIsEditingSorted(true);
+                setRoutingResults(null);
+              }}
+              className="px-3 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-50 cursor-pointer"
+            >
+              Adjust Weights
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* VIEW C: Inspection of Already Sorted Batch (When tab === 'sorted' and not editing) */}
+      {batchDetails && batchDetails.status === 'sorted' && !routingResults && !isEditingSorted && (
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+                  Completed Recycler Dispatch Manifest
+                </h3>
+                <p className="text-2xs text-slate-500">
+                  This batch was separated and successfully dispatched to industrial recycling buyers.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsEditingSorted(true)}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Adjust Weights</span>
+            </button>
+          </div>
+
+          {savedSortedMaterials.length > 0 ? (
+            <div className="space-y-2">
+              {savedSortedMaterials.map((mat, idx) => (
+                <div
+                  key={mat._id || idx}
+                  className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 flex items-center justify-between text-xs"
+                >
+                  <div>
+                    <p className="font-bold text-slate-900 capitalize">
+                      {mat.materialType.replace('_', ' ')}
+                    </p>
+                    <p className="text-2xs text-slate-500">
+                      Licensed Recycler: <strong className="text-slate-800">{mat.destinationBuyerId?.name || 'Metro Smelters Ltd. / Licensed Recycler'}</strong>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono font-black text-emerald-700 text-sm">{mat.weightKg} kg</span>
+                    {mat.isSpecialHandling && (
+                      <span className="block text-3xs font-bold text-amber-700">⚠️ Segregated Safe</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-500">
+              <p>No itemized streams recorded for this historical batch.</p>
+              <button
+                type="button"
+                onClick={() => setIsEditingSorted(true)}
+                className="mt-2 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 cursor-pointer"
+              >
+                Enter Stream Breakdown Now ➔
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

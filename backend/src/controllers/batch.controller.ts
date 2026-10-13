@@ -6,8 +6,8 @@ import ApiError from '../utils/ApiError';
 
 // POST /api/v1/batches (Collector deposits completed pickups)
 export const createBatch = asyncHandler(async (req: Request, res: Response) => {
-  let collectorId = req.user!._id.toString();
-  if (req.user!.role !== 'collector') {
+  let collectorId = req.body?.collectorId || req.user!._id.toString();
+  if (req.user!.role !== 'collector' && !req.body?.collectorId) {
     const User = (await import('../models/User')).default;
     const defaultCollector = await User.findOne({ role: 'collector', phone: '9876500001' });
     if (defaultCollector) {
