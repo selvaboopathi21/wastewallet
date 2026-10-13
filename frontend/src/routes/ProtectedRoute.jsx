@@ -17,9 +17,20 @@ export const ProtectedRoute = ({ allowedRoles = [] }) => {
     );
   }
 
-  // 1. If not authenticated, redirect to login page
+  // 1. If not authenticated, redirect to login page with matching role parameter
   if (!token || !user) {
-    return <Navigate to="/login" replace />;
+    const path = window.location.pathname;
+    let roleParam = '';
+    if (path.startsWith('/admin')) {
+      roleParam = '?role=admin';
+    } else if (path.startsWith('/store')) {
+      roleParam = '?role=store_staff';
+    } else if (path.startsWith('/collector')) {
+      roleParam = '?role=collector';
+    } else if (path.startsWith('/customer')) {
+      roleParam = '?role=customer';
+    }
+    return <Navigate to={`/login${roleParam}`} replace />;
   }
 
   // 2. If specific roles are required, ensure user has permission

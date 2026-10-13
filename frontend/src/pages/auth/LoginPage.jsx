@@ -1,6 +1,6 @@
 // LoginPage.jsx: Professional product authentication supporting Firebase Google Auth, Email/Username & Password, and Mobile OTP
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   Recycle,
   Phone,
@@ -20,6 +20,7 @@ import {
   X,
   ArrowLeft,
   MessageSquare,
+  Sparkles,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import { sendFirebasePhoneOtp } from '../../services/firebaseAuth';
@@ -207,6 +208,52 @@ export const LoginPage = () => {
   const [error, setError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
   const [collectorPendingNotice, setCollectorPendingNotice] = useState(false);
+
+  const [searchParams] = useSearchParams();
+
+  // Helper: Switch Role Portal & Synchronize Form Defaults
+  const selectRolePortal = (targetRole) => {
+    setRole(targetRole);
+    setError('');
+    if (targetRole === 'admin') {
+      setMode('login');
+      setLoginMethod('password');
+      setIdentifier('9999999999');
+      setPassword('admin123');
+    } else if (targetRole === 'store_staff') {
+      setMode('login');
+      setLoginMethod('password');
+      setIdentifier('9876599999');
+      setPassword('password123');
+    } else if (targetRole === 'collector') {
+      if (mode === 'login') {
+        setIdentifier('9876500001');
+        setPassword('123456');
+      }
+    } else if (targetRole === 'customer') {
+      if (mode === 'login') {
+        setIdentifier('9876543210');
+        setPassword('123456');
+      }
+    }
+  };
+
+  // Auto-select role based on URL query param (e.g. /login?role=admin or /login?role=store_staff)
+  useEffect(() => {
+    const requestedRole = searchParams.get('role') || searchParams.get('portal');
+    if (requestedRole) {
+      const cleanRole = requestedRole.toLowerCase();
+      if (['admin', 'ops', 'administrator'].includes(cleanRole)) {
+        selectRolePortal('admin');
+      } else if (['store', 'staff', 'store_staff', 'warehouse'].includes(cleanRole)) {
+        selectRolePortal('store_staff');
+      } else if (cleanRole === 'collector') {
+        selectRolePortal('collector');
+      } else if (cleanRole === 'customer') {
+        selectRolePortal('customer');
+      }
+    }
+  }, [searchParams]);
 
   // 1. Password Login Handler
   const handlePasswordLogin = async (e) => {
@@ -555,6 +602,68 @@ export const LoginPage = () => {
           </p>
         </div>
 
+        {/* 4-Portal Header Selector */}
+        <div className="bg-slate-900/95 border-b border-slate-750 p-2.5">
+          <div className="text-3xs font-black uppercase tracking-wider text-slate-400 mb-1.5 px-1 flex items-center justify-between">
+            <span>Select System Portal</span>
+            <span className="text-emerald-400 font-mono font-bold">4 Direct Portals</span>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            <button
+              type="button"
+              id="portal-tab-customer"
+              onClick={() => selectRolePortal('customer')}
+              className={`py-2 px-1 text-center rounded-xl transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 border ${
+                role === 'customer'
+                  ? 'bg-emerald-500 text-slate-950 font-black border-emerald-400 shadow-lg shadow-emerald-500/25 scale-[1.02]'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800 border-slate-700/60'
+              }`}
+            >
+              <span className="text-sm">👤</span>
+              <span className="text-3xs font-bold leading-tight">Customer</span>
+            </button>
+            <button
+              type="button"
+              id="portal-tab-collector"
+              onClick={() => selectRolePortal('collector')}
+              className={`py-2 px-1 text-center rounded-xl transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 border ${
+                role === 'collector'
+                  ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-lg shadow-amber-500/25 scale-[1.02]'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800 border-slate-700/60'
+              }`}
+            >
+              <span className="text-sm">🚚</span>
+              <span className="text-3xs font-bold leading-tight">Collector</span>
+            </button>
+            <button
+              type="button"
+              id="portal-tab-staff"
+              onClick={() => selectRolePortal('store_staff')}
+              className={`py-2 px-1 text-center rounded-xl transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 border ${
+                role === 'store_staff'
+                  ? 'bg-blue-500 text-slate-950 font-black border-blue-400 shadow-lg shadow-blue-500/25 scale-[1.02]'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800 border-slate-700/60'
+              }`}
+            >
+              <span className="text-sm">🏬</span>
+              <span className="text-3xs font-bold leading-tight">Staff Depot</span>
+            </button>
+            <button
+              type="button"
+              id="portal-tab-admin"
+              onClick={() => selectRolePortal('admin')}
+              className={`py-2 px-1 text-center rounded-xl transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 border ${
+                role === 'admin'
+                  ? 'bg-rose-500 text-slate-950 font-black border-rose-400 shadow-lg shadow-rose-500/25 scale-[1.02]'
+                  : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800 border-slate-700/60'
+              }`}
+            >
+              <span className="text-sm">👑</span>
+              <span className="text-3xs font-bold leading-tight">Admin Ops</span>
+            </button>
+          </div>
+        </div>
+
         {/* Mode Switcher Tabs (Sign In vs Register Account) */}
         {step === 'form' && (
           <div className="flex border-b border-slate-750 bg-slate-900/60">
@@ -667,24 +776,7 @@ export const LoginPage = () => {
                     <button
                       key={r.id}
                       type="button"
-                      onClick={() => {
-                        setRole(r.id);
-                        if (mode === 'login') {
-                          if (r.id === 'admin') {
-                            setIdentifier('9999999999');
-                            setPassword('admin123');
-                          } else if (r.id === 'store_staff') {
-                            setIdentifier('9876599999');
-                            setPassword('password123');
-                          } else if (r.id === 'collector') {
-                            setIdentifier('9876500001');
-                            setPassword('123456');
-                          } else if (r.id === 'customer') {
-                            setIdentifier('9876543210');
-                            setPassword('123456');
-                          }
-                        }
-                      }}
+                      onClick={() => selectRolePortal(r.id)}
                       className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-left cursor-pointer ${
                         role === r.id
                           ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300 shadow-sm'
@@ -696,37 +788,72 @@ export const LoginPage = () => {
                   ))}
                 </div>
 
-                {/* Role Specific Fixed Credential Assistant Banner */}
-                {mode === 'login' && (role === 'admin' || role === 'store_staff') && (
-                  <div className="mt-2.5 p-3 bg-gradient-to-r from-emerald-950/70 to-slate-900 border border-emerald-500/30 rounded-2xl flex items-center justify-between text-2xs">
-                    <div>
-                      <span className="font-bold text-emerald-300 flex items-center gap-1">
-                        <span>{role === 'admin' ? '👑 Master Admin Credentials' : '🏬 Warehouse Staff Credentials'}</span>
-                        <span className="text-3xs bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono">
-                          Fixed Login
-                        </span>
+                {/* Role Specific Fixed Credential Assistant Banner for Admin & Staff */}
+                {mode === 'login' && role === 'admin' && (
+                  <div className="mt-3 p-3.5 bg-gradient-to-r from-rose-950/80 via-slate-900 to-rose-950/80 border border-rose-500/40 rounded-2xl space-y-2.5 text-2xs shadow-xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-rose-300">
+                        <span className="text-sm">👑</span>
+                        <span>Master Admin Operations Portal</span>
+                      </div>
+                      <span className="text-3xs bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded font-mono font-bold">
+                        Fixed Login
                       </span>
-                      <p className="text-3xs text-slate-300 font-mono mt-0.5">
-                        {role === 'admin'
-                          ? 'Number: 9999999999 (admin@wastewallet.com) • Pass: admin123'
-                          : 'Number: 9876599999 (store@wastewallet.com) • Pass: password123'}
-                      </p>
                     </div>
-
+                    <div className="bg-slate-950/70 p-2.5 rounded-xl border border-rose-500/20 text-3xs font-mono text-slate-300 space-y-0.5">
+                      <div>Mobile: <span className="text-white font-bold">9999999999</span> (or <span className="text-rose-300">admin@wastewallet.com</span>)</div>
+                      <div>Password: <span className="text-white font-bold">admin123</span></div>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (role === 'admin') {
-                          setIdentifier('9999999999');
-                          setPassword('admin123');
-                        } else {
-                          setIdentifier('9876599999');
-                          setPassword('password123');
-                        }
-                      }}
-                      className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-3xs cursor-pointer active:scale-95 transition-transform shrink-0"
+                      onClick={() => handleDirectDemoLogin('admin', '9999999999', 'Master Admin')}
+                      className="w-full py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-rose-500/25 cursor-pointer active:scale-95 transition-transform"
                     >
-                      Auto-Filled ✓
+                      <span>⚡ 1-Click Fast Login into Admin Ops ➔</span>
+                    </button>
+                  </div>
+                )}
+
+                {mode === 'login' && role === 'store_staff' && (
+                  <div className="mt-3 p-3.5 bg-gradient-to-r from-blue-950/80 via-slate-900 to-blue-950/80 border border-blue-500/40 rounded-2xl space-y-2.5 text-2xs shadow-xl">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-blue-300">
+                        <span className="text-sm">🏬</span>
+                        <span>Warehouse Reception Staff Portal</span>
+                      </div>
+                      <span className="text-3xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono font-bold">
+                        Fixed Login
+                      </span>
+                    </div>
+                    <div className="bg-slate-950/70 p-2.5 rounded-xl border border-blue-500/20 text-3xs font-mono text-slate-300 space-y-0.5">
+                      <div>Mobile: <span className="text-white font-bold">9876599999</span> (or <span className="text-blue-300">store@wastewallet.com</span>)</div>
+                      <div>Password: <span className="text-white font-bold">password123</span></div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDirectDemoLogin('store_staff', '9876599999', 'Store Manager Selvam')}
+                      className="w-full py-2 bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-400 hover:to-cyan-300 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-blue-500/25 cursor-pointer active:scale-95 transition-transform"
+                    >
+                      <span>⚡ 1-Click Fast Login into Staff Depot ➔</span>
+                    </button>
+                  </div>
+                )}
+
+                {mode === 'register' && (role === 'admin' || role === 'store_staff') && (
+                  <div className="mt-3 p-3.5 bg-slate-900/90 border border-slate-750 rounded-2xl text-center space-y-2">
+                    <div className="text-xs font-bold text-amber-300 flex items-center justify-center gap-1.5">
+                      <span>⚠️</span>
+                      <span>Internal Management Account</span>
+                    </div>
+                    <p className="text-3xs text-slate-400 leading-relaxed">
+                      Admin Ops and Warehouse Staff accounts cannot be self-registered. They are pre-configured with fixed test credentials.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => selectRolePortal(role)}
+                      className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-2xs cursor-pointer active:scale-95 transition-transform"
+                    >
+                      Switch to Sign In & Fill Credentials ➔
                     </button>
                   </div>
                 )}

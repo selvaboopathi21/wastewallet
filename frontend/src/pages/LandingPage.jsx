@@ -111,19 +111,22 @@ export const LandingPage = () => {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 text-xs font-bold text-slate-300">
+          <nav className="hidden md:flex items-center gap-5 text-xs font-bold text-slate-300">
             <a href="#rates" className="hover:text-emerald-400 transition-colors">
               Live Rates
             </a>
             <a href="#how-it-works" className="hover:text-emerald-400 transition-colors">
               How It Works
             </a>
-            <a href="#features" className="hover:text-emerald-400 transition-colors">
-              Why Us
-            </a>
-            <a href="#partners" className="hover:text-emerald-400 transition-colors">
-              For Collectors
-            </a>
+            <Link to="/login?role=collector" className="hover:text-amber-400 transition-colors flex items-center gap-1">
+              <span>🚚</span> Collector
+            </Link>
+            <Link to="/login?role=store_staff" className="hover:text-blue-400 transition-colors flex items-center gap-1">
+              <span>🏬</span> Staff Depot
+            </Link>
+            <Link to="/login?role=admin" className="hover:text-rose-400 transition-colors flex items-center gap-1">
+              <span>👑</span> Admin Ops
+            </Link>
           </nav>
 
           {/* Action CTAs */}
@@ -205,6 +208,35 @@ export const LandingPage = () => {
             >
               <Truck className="w-4 h-4 text-teal-400" />
               <span>Partner as Collector</span>
+            </Link>
+          </div>
+
+          {/* Quick Direct Portal Access Chips */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-3xs font-bold text-slate-400 uppercase tracking-wider mr-1">Direct Portals:</span>
+            <Link
+              to="/login?role=customer"
+              className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-emerald-500/50 text-slate-300 hover:text-white text-3xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <span>👤</span> <span>Customer</span>
+            </Link>
+            <Link
+              to="/login?role=collector"
+              className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-amber-500/50 text-slate-300 hover:text-white text-3xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <span>🚚</span> <span>Collector Partner</span>
+            </Link>
+            <Link
+              to="/login?role=store_staff"
+              className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-blue-500/50 text-slate-300 hover:text-white text-3xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <span>🏬</span> <span>Warehouse Staff</span>
+            </Link>
+            <Link
+              to="/login?role=admin"
+              className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-rose-500/50 text-slate-300 hover:text-white text-3xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <span>👑</span> <span>Admin Ops</span>
             </Link>
           </div>
 
@@ -405,12 +437,12 @@ export const LandingPage = () => {
               </p>
             </div>
             <div>
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Quick Links</h4>
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Portal Links</h4>
               <ul className="space-y-2 text-3xs">
-                <li><a href="#rates" className="hover:text-emerald-400">Today's Mandi Rates</a></li>
-                <li><a href="#how-it-works" className="hover:text-emerald-400">Doorstep Collection</a></li>
-                <li><Link to="/login" className="hover:text-emerald-400">Customer Login</Link></li>
-                <li><Link to="/login" className="hover:text-emerald-400">Collector Partner Portal</Link></li>
+                <li><Link to="/login?role=customer" className="hover:text-emerald-400 flex items-center gap-1"><span>👤</span> Household Customer Login</Link></li>
+                <li><Link to="/login?role=collector" className="hover:text-amber-400 flex items-center gap-1"><span>🚚</span> Collector Partner Portal</Link></li>
+                <li><Link to="/login?role=store_staff" className="hover:text-blue-400 flex items-center gap-1"><span>🏬</span> Warehouse Staff Depot</Link></li>
+                <li><Link to="/login?role=admin" className="hover:text-rose-400 flex items-center gap-1"><span>👑</span> Admin Operations HQ</Link></li>
               </ul>
             </div>
             <div>
