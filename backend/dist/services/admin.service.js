@@ -279,9 +279,25 @@ exports.getAdminReports = getAdminReports;
 // --- USER MANAGEMENT (Approve / Block) ---
 const updateCollectorApproval = async (collectorId, isApproved) => {
     const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
-    const collector = await User.findOneAndUpdate({ _id: new mongoose_1.Types.ObjectId(collectorId), role: 'collector' }, { isApproved }, { new: true });
+    const updateData = { isApproved };
+    if (!isApproved) {
+        updateData.isOnline = false;
+    }
+    const collector = await User.findOneAndUpdate({ _id: new mongoose_1.Types.ObjectId(collectorId), role: 'collector' }, updateData, { new: true }).populate('zoneId', 'name');
     if (!collector) {
         throw new ApiError_1.default(404, 'Collector not found');
+    }
+    // Real-time broadcast to collector
+    try {
+        const { getIO } = await Promise.resolve().then(() => __importStar(require('../sockets')));
+        const io = getIO();
+        io.to(`user:${collector._id.toString()}`).emit('collector.approval_changed', {
+            isApproved: collector.isApproved,
+            isOnline: collector.isOnline,
+        });
+    }
+    catch (err) {
+        // Socket broadcast non-blocking
     }
     return collector;
 };

@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.seedDatabase = void 0;
 // Seed Script: Populates initial master Admin, Chennai collection Zones, and Rate Card
 const mongoose_1 = __importDefault(require("mongoose"));
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const env_1 = __importDefault(require("../config/env"));
 const User_1 = __importDefault(require("../models/User"));
 const Zone_1 = __importDefault(require("../models/Zone"));
@@ -50,12 +51,15 @@ const seedDatabase = async () => {
     logger_1.default.info('Connected to MongoDB for seeding.');
     // 1. Seed Master Admin User
     const adminPhone = '9999999999';
+    const hashedAdminPass = await bcryptjs_1.default.hash('admin123', 10);
     let admin = await User_1.default.findOne({ phone: adminPhone });
     if (!admin) {
         admin = await User_1.default.create({
             phone: adminPhone,
+            email: 'admin@wastewallet.com',
             name: 'Master Admin',
             role: 'admin',
+            password: hashedAdminPass,
             isApproved: true,
             isBlocked: false,
             language: 'en',
@@ -64,8 +68,11 @@ const seedDatabase = async () => {
     }
     else {
         admin.role = 'admin';
+        admin.email = admin.email || 'admin@wastewallet.com';
+        admin.password = hashedAdminPass;
+        admin.isApproved = true;
         await admin.save();
-        logger_1.default.info(`ℹ️ Master Admin user already exists (${adminPhone})`);
+        logger_1.default.info(`ℹ️ Master Admin user updated with credentials (${adminPhone})`);
     }
     // 2. Seed Default Zones in Chennai
     // Zone A: Anna Nagar & Central Chennai
@@ -142,12 +149,15 @@ const seedDatabase = async () => {
     logger_1.default.info(`✅ Seeded ${defaultRates.length} standard scrap rate card items in Paise.`);
     // 4. Seed Store Staff User
     const staffPhone = '9876599999';
+    const hashedStaffPass = await bcryptjs_1.default.hash('password123', 10);
     let staff = await User_1.default.findOne({ phone: staffPhone });
     if (!staff) {
         staff = await User_1.default.create({
             phone: staffPhone,
+            email: 'store@wastewallet.com',
             name: 'Store Manager Selvam',
             role: 'store_staff',
+            password: hashedStaffPass,
             isApproved: true,
             isBlocked: false,
             language: 'en',
@@ -156,9 +166,31 @@ const seedDatabase = async () => {
     }
     else {
         staff.role = 'store_staff';
+        staff.email = staff.email || 'store@wastewallet.com';
+        staff.password = hashedStaffPass;
+        staff.isApproved = true;
         await staff.save();
+        logger_1.default.info(`ℹ️ Store Staff user updated with credentials (${staffPhone})`);
     }
-    // 5. Seed Recycler Buyers for Automatic Material Routing
+    // 5. Seed Pre-Configured Test Collector Partner
+    const collectorPhone = '9876500001';
+    let collector = await User_1.default.findOne({ phone: collectorPhone });
+    if (collector) {
+        collector.email = collector.email || 'collector@wastewallet.com';
+        collector.password = await bcryptjs_1.default.hash('password123', 10);
+        collector.isApproved = true;
+        await collector.save();
+    }
+    // 6. Seed Pre-Configured Test Customer
+    const customerPhone = '9876543210';
+    let customer = await User_1.default.findOne({ phone: customerPhone });
+    if (customer) {
+        customer.email = customer.email || 'customer@wastewallet.com';
+        customer.password = await bcryptjs_1.default.hash('password123', 10);
+        customer.isApproved = true;
+        await customer.save();
+    }
+    // 7. Seed Recycler Buyers for Automatic Material Routing
     const Buyer = (await Promise.resolve().then(() => __importStar(require('../models/Buyer')))).default;
     const defaultBuyers = [
         {

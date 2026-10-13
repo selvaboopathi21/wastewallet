@@ -126,7 +126,8 @@ export const approveCollector = asyncHandler(async (req: Request, res: Response)
 export const getCollectorsList = asyncHandler(async (req: Request, res: Response) => {
   const User = (await import('../models/User')).default;
   const collectors = await User.find({ role: 'collector' })
-    .select('name phone rating storeName isApproved isOnline createdAt')
+    .select('name phone email address zoneId rating storeName isApproved isOnline createdAt')
+    .populate('zoneId', 'name')
     .sort({ createdAt: -1 });
 
   res.status(200).json({

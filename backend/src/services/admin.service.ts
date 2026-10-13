@@ -307,14 +307,32 @@ export const getAdminReports = async () => {
 
 export const updateCollectorApproval = async (collectorId: string, isApproved: boolean) => {
   const User = (await import('../models/User')).default;
+  const updateData: any = { isApproved };
+  if (!isApproved) {
+    updateData.isOnline = false;
+  }
   const collector = await User.findOneAndUpdate(
     { _id: new Types.ObjectId(collectorId), role: 'collector' },
-    { isApproved },
+    updateData,
     { new: true }
-  );
+  ).populate('zoneId', 'name');
+
   if (!collector) {
     throw new ApiError(404, 'Collector not found');
   }
+
+  // Real-time broadcast to collector
+  try {
+    const { getIO } = await import('../sockets');
+    const io = getIO();
+    io.to(`user:${collector._id.toString()}`).emit('collector.approval_changed', {
+      isApproved: collector.isApproved,
+      isOnline: collector.isOnline,
+    });
+  } catch (err: any) {
+    // Socket broadcast non-blocking
+  }
+
   return collector;
 };
 

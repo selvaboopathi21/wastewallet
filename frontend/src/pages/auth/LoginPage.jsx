@@ -103,6 +103,55 @@ const FALLBACK_ACCOUNTS = {
     },
     destination: '/admin',
   },
+  'admin@wastewallet.com': {
+    token:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhY2E3NDQ5YWMwZGZjYzdhNjNhNTkxMCIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc5MTc5NDI4NywiZXhwIjoxNzk0Mzg2Mjg3fQ.35zfnVrVWmPOpiaYI0W72ygK-CWrvAFEa7OoTqsB4H8',
+    user: {
+      _id: '6aca7449ac0dfcc7a63a5910',
+      id: '6aca7449ac0dfcc7a63a5910',
+      name: 'Master Admin',
+      phone: '9999999999',
+      email: 'admin@wastewallet.com',
+      role: 'admin',
+      isApproved: true,
+      rating: { avg: 5.0, count: 1 },
+      language: 'en',
+    },
+    destination: '/admin',
+  },
+  'store@wastewallet.com': {
+    token:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhY2E3ZmNkZGU1OGY2YTQwY2Q2MmUyZiIsInJvbGUiOiJzdG9yZV9zdGFmZiIsImlhdCI6MTc5MTc5NDI4NywiZXhwIjoxNzk0Mzg2Mjg3fQ.RPrdE_4bVFrlG21Z8rEs0nQs8qs2lJeIuSVQWR4apQ8',
+    user: {
+      _id: '6aca7fcdde58f6a40cd62e2f',
+      id: '6aca7fcdde58f6a40cd62e2f',
+      name: 'Store Manager Selvam',
+      phone: '9876599999',
+      email: 'store@wastewallet.com',
+      role: 'store_staff',
+      isApproved: true,
+      rating: { avg: 5.0, count: 1 },
+      language: 'en',
+      address: 'Central Warehouse, Ambattur Industrial Estate',
+    },
+    destination: '/store',
+  },
+  admin: {
+    token:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhY2E3NDQ5YWMwZGZjYzdhNjNhNTkxMCIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc5MTc5NDI4NywiZXhwIjoxNzk0Mzg2Mjg3fQ.35zfnVrVWmPOpiaYI0W72ygK-CWrvAFEa7OoTqsB4H8',
+    user: {
+      _id: '6aca7449ac0dfcc7a63a5910',
+      id: '6aca7449ac0dfcc7a63a5910',
+      name: 'Master Admin',
+      phone: '9999999999',
+      email: 'admin@wastewallet.com',
+      role: 'admin',
+      isApproved: true,
+      rating: { avg: 5.0, count: 1 },
+      language: 'en',
+    },
+    destination: '/admin',
+  },
 };
 
 const AVAILABLE_ZONES = [
@@ -618,7 +667,24 @@ export const LoginPage = () => {
                     <button
                       key={r.id}
                       type="button"
-                      onClick={() => setRole(r.id)}
+                      onClick={() => {
+                        setRole(r.id);
+                        if (mode === 'login') {
+                          if (r.id === 'admin') {
+                            setIdentifier('9999999999');
+                            setPassword('admin123');
+                          } else if (r.id === 'store_staff') {
+                            setIdentifier('9876599999');
+                            setPassword('password123');
+                          } else if (r.id === 'collector') {
+                            setIdentifier('9876500001');
+                            setPassword('123456');
+                          } else if (r.id === 'customer') {
+                            setIdentifier('9876543210');
+                            setPassword('123456');
+                          }
+                        }
+                      }}
                       className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-left cursor-pointer ${
                         role === r.id
                           ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300 shadow-sm'
@@ -629,6 +695,41 @@ export const LoginPage = () => {
                     </button>
                   ))}
                 </div>
+
+                {/* Role Specific Fixed Credential Assistant Banner */}
+                {mode === 'login' && (role === 'admin' || role === 'store_staff') && (
+                  <div className="mt-2.5 p-3 bg-gradient-to-r from-emerald-950/70 to-slate-900 border border-emerald-500/30 rounded-2xl flex items-center justify-between text-2xs">
+                    <div>
+                      <span className="font-bold text-emerald-300 flex items-center gap-1">
+                        <span>{role === 'admin' ? '👑 Master Admin Credentials' : '🏬 Warehouse Staff Credentials'}</span>
+                        <span className="text-3xs bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-mono">
+                          Fixed Login
+                        </span>
+                      </span>
+                      <p className="text-3xs text-slate-300 font-mono mt-0.5">
+                        {role === 'admin'
+                          ? 'Number: 9999999999 (admin@wastewallet.com) • Pass: admin123'
+                          : 'Number: 9876599999 (store@wastewallet.com) • Pass: password123'}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (role === 'admin') {
+                          setIdentifier('9999999999');
+                          setPassword('admin123');
+                        } else {
+                          setIdentifier('9876599999');
+                          setPassword('password123');
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-3xs cursor-pointer active:scale-95 transition-transform shrink-0"
+                    >
+                      Auto-Filled ✓
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* FORM TYPE 1: Standard Password Login */}
@@ -889,6 +990,93 @@ export const LoginPage = () => {
                   </button>
                 </form>
               )}
+
+              {/* ⚡ 1-Click Fast Login (Pre-Configured Accounts for Testing) */}
+              <div className="mt-5 pt-4 border-t border-slate-750">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-3xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    ⚡ 1-Click Fast Login (Fixed Accounts)
+                  </span>
+                  <span className="text-3xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">
+                    Instant Access
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-2xs">
+                  {/* Customer */}
+                  <div className="bg-slate-900 border border-slate-750 p-2.5 rounded-2xl flex flex-col justify-between hover:border-slate-600 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-1 font-bold text-slate-200">
+                        <span>👤</span> <span>Customer</span>
+                      </div>
+                      <span className="text-3xs font-mono text-slate-400 block mt-0.5">9876543210</span>
+                      <span className="text-3xs text-slate-500 block">Pass: 123456</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDirectDemoLogin('customer', '9876543210', 'Ravi Kumar')}
+                      className="mt-2 w-full py-1.5 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-slate-950 font-black rounded-xl text-3xs transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                    >
+                      ⚡ Fast Login
+                    </button>
+                  </div>
+
+                  {/* Collector */}
+                  <div className="bg-slate-900 border border-slate-750 p-2.5 rounded-2xl flex flex-col justify-between hover:border-slate-600 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-1 font-bold text-amber-300">
+                        <span>🚚</span> <span>Collector</span>
+                      </div>
+                      <span className="text-3xs font-mono text-slate-400 block mt-0.5">9876500001</span>
+                      <span className="text-3xs text-slate-500 block">Pass: 123456</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDirectDemoLogin('collector', '9876500001', 'Murugan (Top Collector)')}
+                      className="mt-2 w-full py-1.5 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-black rounded-xl text-3xs transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                    >
+                      ⚡ Fast Login
+                    </button>
+                  </div>
+
+                  {/* Store Staff */}
+                  <div className="bg-slate-900 border border-slate-750 p-2.5 rounded-2xl flex flex-col justify-between hover:border-slate-600 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-1 font-bold text-blue-300">
+                        <span>🏬</span> <span>Store Staff</span>
+                      </div>
+                      <span className="text-3xs font-mono text-slate-400 block mt-0.5">9876599999</span>
+                      <span className="text-3xs text-slate-500 block">Pass: password123</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDirectDemoLogin('store_staff', '9876599999', 'Store Manager Selvam')}
+                      className="mt-2 w-full py-1.5 bg-blue-500/20 hover:bg-blue-500 text-blue-300 hover:text-slate-950 font-black rounded-xl text-3xs transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                    >
+                      ⚡ Fast Login
+                    </button>
+                  </div>
+
+                  {/* Admin */}
+                  <div className="bg-slate-900 border border-slate-750 p-2.5 rounded-2xl flex flex-col justify-between hover:border-slate-600 transition-colors">
+                    <div>
+                      <div className="flex items-center gap-1 font-bold text-rose-300">
+                        <span>👑</span> <span>Admin</span>
+                      </div>
+                      <span className="text-3xs font-mono text-slate-400 block mt-0.5">9999999999</span>
+                      <span className="text-3xs text-slate-500 block">Pass: admin123</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDirectDemoLogin('admin', '9999999999', 'Master Admin')}
+                      className="mt-2 w-full py-1.5 bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-slate-950 font-black rounded-xl text-3xs transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                    >
+                      ⚡ Fast Login
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
             /* STEP 2: 6-Digit OTP Verification Screen */

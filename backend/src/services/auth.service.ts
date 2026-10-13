@@ -321,8 +321,9 @@ export const registerWithPassword = async ({
       if (role && Object.values(ROLES).includes(role)) existing.role = role;
       if (selectedZoneId) existing.zoneId = selectedZoneId;
       if (existing.role === 'collector') {
-        existing.isApproved = true;
-        existing.isOnline = true;
+        if (existing.isApproved === undefined) {
+          existing.isApproved = false;
+        }
       }
       await existing.save();
 
@@ -357,6 +358,9 @@ export const registerWithPassword = async ({
 
   const userRole = role && Object.values(ROLES).includes(role) ? role : 'customer';
 
+  // Customer is approved automatically; New collector requires Admin approval
+  const isApproved = userRole === 'collector' ? false : true;
+
   const user = await User.create({
     name: name?.trim() || (userRole === 'collector' ? 'Partner Collector' : 'Customer'),
     email: cleanEmail,
@@ -364,8 +368,8 @@ export const registerWithPassword = async ({
     password: hashedPassword,
     role: userRole,
     address: address?.trim() || '',
-    isApproved: true,
-    isOnline: true,
+    isApproved,
+    isOnline: false,
     zoneId: selectedZoneId,
   });
 
@@ -406,12 +410,20 @@ export const loginWithPassword = async ({
   }
 
   const cleanId = identifier.trim();
+  const queryConditions: any[] = [
+    { phone: cleanId },
+    { email: cleanId.toLowerCase() },
+    { name: cleanId },
+  ];
+  if (['admin', 'admin ops', 'master admin'].includes(cleanId.toLowerCase())) {
+    queryConditions.push({ role: 'admin' });
+  }
+  if (['store', 'staff', 'store_staff', 'warehouse staff', 'store manager'].includes(cleanId.toLowerCase())) {
+    queryConditions.push({ role: 'store_staff' });
+  }
+
   const user = await User.findOne({
-    $or: [
-      { phone: cleanId },
-      { email: cleanId.toLowerCase() },
-      { name: cleanId },
-    ],
+    $or: queryConditions,
   }).select('+password');
 
   if (!user) {

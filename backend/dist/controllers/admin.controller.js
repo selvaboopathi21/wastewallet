@@ -144,7 +144,8 @@ exports.approveCollector = (0, asyncHandler_1.default)(async (req, res) => {
 exports.getCollectorsList = (0, asyncHandler_1.default)(async (req, res) => {
     const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
     const collectors = await User.find({ role: 'collector' })
-        .select('name phone rating storeName isApproved isOnline createdAt')
+        .select('name phone email address zoneId rating storeName isApproved isOnline createdAt')
+        .populate('zoneId', 'name')
         .sort({ createdAt: -1 });
     res.status(200).json({
         success: true,

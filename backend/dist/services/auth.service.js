@@ -235,8 +235,9 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
             if (selectedZoneId)
                 existing.zoneId = selectedZoneId;
             if (existing.role === 'collector') {
-                existing.isApproved = true;
-                existing.isOnline = true;
+                if (existing.isApproved === undefined) {
+                    existing.isApproved = false;
+                }
             }
             await existing.save();
             const token = jsonwebtoken_1.default.sign({ id: existing._id.toString(), role: existing.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
@@ -262,6 +263,8 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
     const salt = await bcryptjs_1.default.genSalt(10);
     const hashedPassword = await bcryptjs_1.default.hash(password, salt);
     const userRole = role && Object.values(constants_1.ROLES).includes(role) ? role : 'customer';
+    // Customer is approved automatically; New collector requires Admin approval
+    const isApproved = userRole === 'collector' ? false : true;
     const user = await User_1.default.create({
         name: name?.trim() || (userRole === 'collector' ? 'Partner Collector' : 'Customer'),
         email: cleanEmail,
@@ -269,8 +272,8 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
         password: hashedPassword,
         role: userRole,
         address: address?.trim() || '',
-        isApproved: true,
-        isOnline: true,
+        isApproved,
+        isOnline: false,
         zoneId: selectedZoneId,
     });
     const token = jsonwebtoken_1.default.sign({ id: user._id.toString(), role: user.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
@@ -298,12 +301,19 @@ const loginWithPassword = async ({ identifier, password, }) => {
         throw new ApiError_1.default(400, 'Email, Username or Mobile number and password are required');
     }
     const cleanId = identifier.trim();
+    const queryConditions = [
+        { phone: cleanId },
+        { email: cleanId.toLowerCase() },
+        { name: cleanId },
+    ];
+    if (['admin', 'admin ops', 'master admin'].includes(cleanId.toLowerCase())) {
+        queryConditions.push({ role: 'admin' });
+    }
+    if (['store', 'staff', 'store_staff', 'warehouse staff', 'store manager'].includes(cleanId.toLowerCase())) {
+        queryConditions.push({ role: 'store_staff' });
+    }
     const user = await User_1.default.findOne({
-        $or: [
-            { phone: cleanId },
-            { email: cleanId.toLowerCase() },
-            { name: cleanId },
-        ],
+        $or: queryConditions,
     }).select('+password');
     if (!user) {
         throw new ApiError_1.default(400, 'Account not found. Please check your credentials or register.');

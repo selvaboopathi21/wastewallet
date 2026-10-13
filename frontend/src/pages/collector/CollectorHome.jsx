@@ -14,6 +14,7 @@ import {
   DollarSign,
   PackageCheck,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuth from '../../hooks/useAuth';
@@ -24,6 +25,8 @@ export const CollectorHome = () => {
   const { user } = useAuth();
   const { socket } = useSocket();
 
+  const [isApproved, setIsApproved] = useState(user?.isApproved ?? false);
+  const [checkingApproval, setCheckingApproval] = useState(false);
   const [isOnline, setIsOnline] = useState(user?.isOnline ?? true);
   const [offers, setOffers] = useState([]);
   const [activeJobs, setActiveJobs] = useState([]);
@@ -35,6 +38,28 @@ export const CollectorHome = () => {
     totalWeightKg: 0,
     totalCashPaid: 0,
   });
+
+  // Re-check approval status on demand
+  const checkApprovalStatus = async () => {
+    setCheckingApproval(true);
+    try {
+      const res = await api.get('/auth/me');
+      const u = res?.data?.data?.user || res?.data?.user;
+      if (u) {
+        setIsApproved(u.isApproved);
+        if (user) {
+          user.isApproved = u.isApproved;
+        }
+        if (u.isApproved) {
+          setIsOnline(u.isOnline ?? true);
+        }
+      }
+    } catch (err) {
+      console.warn('Check approval failed:', err.message);
+    } finally {
+      setCheckingApproval(false);
+    }
+  };
 
   // Fetch incoming offers & active jobs
   const fetchCollectorData = async () => {
@@ -96,14 +121,26 @@ export const CollectorHome = () => {
       fetchCollectorData();
     };
 
+    const handleApprovalChanged = ({ isApproved: approved, isOnline: online }) => {
+      setIsApproved(approved);
+      if (user) user.isApproved = approved;
+      if (!approved) {
+        setIsOnline(false);
+      } else if (online !== undefined) {
+        setIsOnline(online);
+      }
+    };
+
     socket.on('pickup.offered', handlePickupOffered);
     socket.on('pickup.status.changed', handleStatusChanged);
+    socket.on('collector.approval_changed', handleApprovalChanged);
 
     return () => {
       socket.off('pickup.offered', handlePickupOffered);
       socket.off('pickup.status.changed', handleStatusChanged);
+      socket.off('collector.approval_changed', handleApprovalChanged);
     };
-  }, [socket]);
+  }, [socket, user]);
 
   // Toggle online availability
   const handleToggleOnline = async () => {
@@ -181,15 +218,27 @@ export const CollectorHome = () => {
         </div>
 
         {/* Unapproved Notice */}
-        {user?.isApproved === false && (
-          <div className="p-3 bg-amber-500/20 border border-amber-400/40 rounded-2xl text-amber-200 text-xs font-semibold flex items-start gap-2">
-            <span className="text-base">⏳</span>
-            <div>
-              <span className="font-bold text-white block">Account Pending Admin Approval</span>
-              <span className="text-3xs text-amber-100">
-                Your partner application has been submitted. The Admin must approve your profile from the Admin Operations dashboard before you can toggle online and receive pickups.
-              </span>
+        {!isApproved && (
+          <div className="p-3.5 bg-amber-500/20 border border-amber-400/40 rounded-2xl text-amber-200 text-xs font-semibold space-y-2.5">
+            <div className="flex items-start gap-2">
+              <span className="text-base shrink-0">⏳</span>
+              <div>
+                <span className="font-bold text-white block">Account Pending Admin Approval</span>
+                <span className="text-3xs text-amber-100 leading-relaxed block mt-0.5">
+                  Your collector partner application is under review. Master Admin must accept your profile with the Right Tick (✓) from Admin Ops before you can go online and receive customer scrap pickups.
+                </span>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={checkApprovalStatus}
+              disabled={checkingApproval}
+              className="w-full py-1.5 bg-amber-400 hover:bg-amber-300 text-amber-950 font-black rounded-xl text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${checkingApproval ? 'animate-spin' : ''}`} />
+              <span>{checkingApproval ? 'Checking with Admin Server...' : 'Check If Admin Accepted ✓'}</span>
+            </button>
           </div>
         )}
 
@@ -198,16 +247,16 @@ export const CollectorHome = () => {
           <div className="flex items-center gap-2">
             <span
               className={`w-3 h-3 rounded-full ${
-                user?.isApproved === false
-                  ? 'bg-amber-400'
+                !isApproved
+                  ? 'bg-amber-400 animate-pulse'
                   : isOnline
                   ? 'bg-emerald-400 animate-pulse'
                   : 'bg-slate-400'
               }`}
             ></span>
             <span className="text-xs font-bold text-white">
-              {user?.isApproved === false
-                ? 'Approval Pending (Offline)'
+              {!isApproved
+                ? 'Approval Pending (Work Locked)'
                 : isOnline
                 ? 'Active & Ready for Pickups'
                 : 'Currently Offline'}
@@ -215,17 +264,17 @@ export const CollectorHome = () => {
           </div>
 
           <button
-            onClick={user?.isApproved === false ? undefined : handleToggleOnline}
-            disabled={user?.isApproved === false}
+            onClick={!isApproved ? undefined : handleToggleOnline}
+            disabled={!isApproved}
             className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-xs ${
-              user?.isApproved === false
-                ? 'bg-slate-600 text-slate-300 cursor-not-allowed opacity-75'
+              !isApproved
+                ? 'bg-slate-700 text-slate-300 cursor-not-allowed opacity-80'
                 : isOnline
                 ? 'bg-rose-500 hover:bg-rose-600 text-white cursor-pointer'
                 : 'bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer'
             }`}
           >
-            {user?.isApproved === false ? 'Awaiting Approval' : isOnline ? 'Go Offline' : 'Go Online'}
+            {!isApproved ? 'Awaiting Approval ⏳' : isOnline ? 'Go Offline' : 'Go Online'}
           </button>
         </div>
       </div>

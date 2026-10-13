@@ -12,6 +12,14 @@ import {
   TrendingUp,
   ArrowRight,
   ShieldAlert,
+  Check,
+  X,
+  Phone,
+  Mail,
+  MapPin,
+  Clock,
+  Search,
+  RefreshCw,
 } from 'lucide-react';
 import api from '../../api/axios';
 
@@ -21,6 +29,10 @@ export const AdminDashboard = () => {
   const [reports, setReports] = useState(null);
   const [fraudAlerts, setFraudAlerts] = useState([]);
   const [collectors, setCollectors] = useState([]);
+  const [collectorFilter, setCollectorFilter] = useState('all'); // 'all' | 'pending' | 'approved'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [approvalFeedback, setApprovalFeedback] = useState('');
+  const [updatingCollectorId, setUpdatingCollectorId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -49,16 +61,34 @@ export const AdminDashboard = () => {
     }
   };
 
-  const handleToggleApproval = async (collectorId, currentStatus) => {
+  // Explicit Accept (Right Tick ✓) or Reject/Revoke (Wrong Symbol ✗)
+  const handleSetApproval = async (collectorId, shouldApprove, collectorName = 'Partner') => {
+    setUpdatingCollectorId(collectorId);
+    setApprovalFeedback('');
     try {
       await api.patch(`/admin/collectors/${collectorId}/approve`, {
-        isApproved: !currentStatus,
+        isApproved: shouldApprove,
       });
+
       setCollectors((prev) =>
-        prev.map((c) => (c._id === collectorId ? { ...c, isApproved: !currentStatus } : c))
+        prev.map((c) =>
+          c._id === collectorId
+            ? { ...c, isApproved: shouldApprove, isOnline: shouldApprove ? c.isOnline : false }
+            : c
+        )
       );
+
+      setApprovalFeedback(
+        shouldApprove
+          ? `✓ "${collectorName}" ACCEPTED! Collector partner can now go online and receive scrap pickup jobs.`
+          : `✗ "${collectorName}" REJECTED / REVOKED! Collector cannot go online or accept pickups.`
+      );
+
+      setTimeout(() => setApprovalFeedback(''), 5000);
     } catch (err) {
       alert(err.message || 'Failed to update collector approval');
+    } finally {
+      setUpdatingCollectorId(null);
     }
   };
 
@@ -207,66 +237,258 @@ export const AdminDashboard = () => {
 
       {/* Collector Partner Approvals Management */}
       <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-emerald-600" />
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-              Collector Partner Approvals ({collectors.length})
-            </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+              <Users className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                Collector Partner Verification & Approvals
+              </h3>
+              <p className="text-2xs text-slate-500">
+                New collectors must be accepted by Admin before they can go online and receive scrap pickups
+              </p>
+            </div>
           </div>
-          <span className="text-2xs font-bold text-slate-400">
-            {collectors.filter((c) => !c.isApproved).length} Pending Review
-          </span>
+
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-xs font-black px-3 py-1 rounded-full border ${
+                collectors.filter((c) => !c.isApproved).length > 0
+                  ? 'bg-amber-100 border-amber-300 text-amber-900 animate-pulse'
+                  : 'bg-slate-100 border-slate-200 text-slate-600'
+              }`}
+            >
+              ⏳ {collectors.filter((c) => !c.isApproved).length} Pending Review
+            </span>
+            <button
+              onClick={fetchDashboardData}
+              className="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+              title="Refresh list"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {collectors.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-4">No registered collectors found.</p>
-        ) : (
-          <div className="divide-y divide-slate-100 text-xs">
-            {collectors.map((c) => (
-              <div
-                key={c._id}
-                className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">{c.name || 'Partner Collector'}</span>
-                    <span
-                      className={`text-3xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                        c.isApproved
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-900 animate-pulse'
-                      }`}
-                    >
-                      {c.isApproved ? 'Approved Partner ✓' : '⏳ Awaiting Admin Approval'}
-                    </span>
-                    {c.isOnline && (
-                      <span className="text-3xs bg-teal-100 text-teal-800 font-bold px-1.5 py-0.5 rounded">
-                        Online
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-2xs text-slate-500 mt-0.5">
-                    Phone: <span className="font-mono font-bold">+91 {c.phone}</span> • Rating:{' '}
-                    {c.rating?.avg?.toFixed(1) || '4.8'} ★
-                  </p>
-                </div>
+        {/* Live Feedback Toast */}
+        {approvalFeedback && (
+          <div
+            className={`p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2 border transition-all ${
+              approvalFeedback.startsWith('✓')
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                : 'bg-rose-50 border-rose-300 text-rose-900'
+            }`}
+          >
+            {approvalFeedback.startsWith('✓') ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{approvalFeedback}</span>
+          </div>
+        )}
 
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleApproval(c._id, c.isApproved)}
-                    className={`px-3 py-1.5 rounded-xl font-bold text-xs cursor-pointer transition-all ${
-                      c.isApproved
-                        ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+        {/* Filters and Search Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setCollectorFilter('all')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                collectorFilter === 'all'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              All ({collectors.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollectorFilter('pending')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                collectorFilter === 'pending'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  : 'text-amber-800 hover:text-amber-950'
+              }`}
+            >
+              <span>Pending</span>
+              <span className="text-2xs bg-black/10 px-1.5 py-0.2 rounded-full font-mono">
+                {collectors.filter((c) => !c.isApproved).length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollectorFilter('approved')}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                collectorFilter === 'approved'
+                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                  : 'text-emerald-700 hover:text-emerald-900'
+              }`}
+            >
+              Approved ({collectors.filter((c) => c.isApproved).length})
+            </button>
+          </div>
+
+          <div className="relative flex-1 max-w-xs">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by name, phone, zone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+        </div>
+
+        {/* Collectors List */}
+        {collectors.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-6">No registered collectors found.</p>
+        ) : (
+          <div className="space-y-3 pt-2">
+            {collectors
+              .filter((c) => {
+                if (collectorFilter === 'pending') return !c.isApproved;
+                if (collectorFilter === 'approved') return c.isApproved;
+                return true;
+              })
+              .filter((c) => {
+                if (!searchQuery.trim()) return true;
+                const query = searchQuery.toLowerCase();
+                const zoneName = c.zoneId?.name || (c.zoneId === '6aca7449ac0dfcc7a63a591b' ? 'Chennai South' : 'Chennai Central');
+                return (
+                  c.name?.toLowerCase().includes(query) ||
+                  c.phone?.includes(query) ||
+                  c.email?.toLowerCase().includes(query) ||
+                  zoneName.toLowerCase().includes(query)
+                );
+              })
+              .map((c) => {
+                const zoneName =
+                  c.zoneId?.name ||
+                  (c.zoneId === '6aca7449ac0dfcc7a63a591b'
+                    ? 'Chennai South (Guindy / Adyar)'
+                    : 'Chennai Central (Anna Nagar)');
+
+                const isBusyUpdating = updatingCollectorId === c._id;
+
+                return (
+                  <div
+                    key={c._id}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      !c.isApproved
+                        ? 'bg-amber-50/60 border-amber-300 shadow-xs'
+                        : 'bg-slate-50/70 border-slate-200 hover:border-slate-300'
                     }`}
                   >
-                    {c.isApproved ? 'Revoke Approval' : '✓ Approve Partner'}
-                  </button>
-                </div>
-              </div>
-            ))}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      {/* Left: Collector Details */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-sm text-slate-900">
+                            {c.name || 'New Collector'}
+                          </span>
+
+                          {/* Approval Status Badge */}
+                          <span
+                            className={`text-3xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 ${
+                              c.isApproved
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-amber-200 text-amber-950 border border-amber-300 animate-pulse'
+                            }`}
+                          >
+                            {c.isApproved ? '✓ Approved Partner' : '⏳ Pending Admin Approval'}
+                          </span>
+
+                          {/* Work Status Badge */}
+                          {c.isApproved ? (
+                            <span
+                              className={`text-3xs font-bold px-2 py-0.5 rounded-md ${
+                                c.isOnline
+                                  ? 'bg-emerald-500 text-white animate-pulse'
+                                  : 'bg-slate-200 text-slate-600'
+                              }`}
+                            >
+                              {c.isOnline ? '🟢 Online & Ready' : '⚪ Currently Offline'}
+                            </span>
+                          ) : (
+                            <span className="text-3xs font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
+                              ⛔ Work Locked (Not Approved)
+                            </span>
+                          )}
+
+                          <span className="text-3xs font-mono font-bold bg-white text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+                            ★ {c.rating?.avg?.toFixed(1) || '5.0'}
+                          </span>
+                        </div>
+
+                        {/* Contact & Territory Info */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-2xs text-slate-600 pt-0.5">
+                          <div className="flex items-center gap-1 font-mono">
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            <span className="font-bold text-slate-800">+91 {c.phone}</span>
+                          </div>
+
+                          {c.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="w-3 h-3 text-slate-400" />
+                              <span className="text-slate-600 truncate">{c.email}</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span className="font-semibold text-emerald-800">{zoneName}</span>
+                          </div>
+                        </div>
+
+                        {c.address && (
+                          <p className="text-3xs text-slate-500 italic">
+                            Doorstep / Base: {c.address}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Right: Accept (Right Tick ✓) & Reject (Wrong Symbol ✗) Action Buttons */}
+                      <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+                        {/* RIGHT TICK: Accept / Approve Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleSetApproval(c._id, true, c.name)}
+                          disabled={isBusyUpdating || c.isApproved}
+                          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 ${
+                            c.isApproved
+                              ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                              : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md'
+                          }`}
+                          title="Accept collector: Grants permission to go online and receive scrap collection orders"
+                        >
+                          <Check className="w-4 h-4 stroke-[3]" />
+                          <span>{c.isApproved ? 'Accepted ✓' : '✓ Accept Partner'}</span>
+                        </button>
+
+                        {/* WRONG SYMBOL: Reject / Revoke Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleSetApproval(c._id, false, c.name)}
+                          disabled={isBusyUpdating || (!c.isApproved && false)}
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                            !c.isApproved
+                              ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300'
+                              : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                          }`}
+                          title="Reject or revoke: Disables collector account from taking pickups"
+                        >
+                          <X className="w-4 h-4 stroke-[3]" />
+                          <span>{c.isApproved ? '✗ Revoke' : '✗ Reject'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>
