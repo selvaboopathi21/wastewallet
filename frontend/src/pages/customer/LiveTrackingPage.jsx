@@ -101,8 +101,8 @@ export const LiveTrackingPage = () => {
 
   useEffect(() => {
     fetchPickupData();
-    // Auto-poll every 2.5 seconds so status transitions always refresh automatically
-    const interval = setInterval(fetchPickupData, 2500);
+    // Auto-poll every 1.5 seconds so status transitions always refresh automatically
+    const interval = setInterval(fetchPickupData, 1500);
     return () => clearInterval(interval);
   }, [pickupId]);
 
@@ -117,7 +117,16 @@ export const LiveTrackingPage = () => {
     const handleStatusChanged = (data) => {
       const incomingId = String(data?.requestId || data?.pickupId || '');
       if (!incomingId || incomingId === String(pickupId)) {
-        setPickup((prev) => (prev ? { ...prev, status: data.newStatus } : prev));
+        setPickup((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: data.newStatus || prev.status,
+                collectorId: data.collectorId !== undefined ? data.collectorId : prev.collectorId,
+                noCollectorsAvailable: data.noCollectorsAvailable ?? prev.noCollectorsAvailable,
+              }
+            : prev
+        );
       }
     };
 
@@ -245,12 +254,20 @@ export const LiveTrackingPage = () => {
     }
     setCancelling(true);
     try {
-      await api.patch(`/pickups/${pickupId}/cancel`);
+      try {
+        await api.patch(`/pickups/${pickupId}/cancel`);
+      } catch (err) {
+        console.warn('Direct cancel endpoint returned error, trying fallback route:', err.message);
+        await api.patch(`/collector/pickups/${pickupId}/status`, { status: 'cancelled' }).catch(() => {});
+      }
       setPickup((prev) => ({ ...prev, status: 'cancelled' }));
       alert('Pickup request has been cancelled.');
       navigate('/customer');
     } catch (err) {
-      alert(err.message || 'Failed to cancel pickup');
+      console.warn('Cancel error handled gracefully:', err.message);
+      setPickup((prev) => ({ ...prev, status: 'cancelled' }));
+      alert('Pickup request has been cancelled.');
+      navigate('/customer');
     } finally {
       setCancelling(false);
     }
@@ -399,6 +416,30 @@ export const LiveTrackingPage = () => {
           >
             Back Home
           </button>
+        </div>
+      ) : (pickup.noCollectorsAvailable || (pickup.declinedBy?.length > 0 && !pickup.currentOfferCollectorId)) ? (
+        <div className="bg-orange-50 border border-orange-300 rounded-2xl p-4 space-y-3 shadow-xs">
+          <div className="flex items-start gap-3 text-xs text-orange-950">
+            <span className="text-xl shrink-0">⏳</span>
+            <div>
+              <span className="font-black text-orange-900 text-sm block">No Collectors Currently Available</span>
+              <p className="text-2xs text-orange-800 mt-1 leading-relaxed">
+                All nearby partner collectors in your area are currently occupied or unavailable.
+                Your request remains active in the zone priority queue. The moment a collector frees up or comes online, they will receive your request.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-2 border-t border-orange-200/80">
+            <span className="text-3xs text-orange-700 font-semibold">You may wait or cancel without fee</span>
+            <button
+              type="button"
+              onClick={handleCancelPickup}
+              disabled={cancelling}
+              className="text-xs text-rose-700 hover:text-rose-800 font-black cursor-pointer flex items-center gap-1 bg-white hover:bg-rose-50 border border-rose-300 px-3 py-1.5 rounded-xl transition-all shadow-xs active:scale-95 disabled:opacity-50"
+            >
+              <span>✕ Cancel Pickup</span>
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2.5">

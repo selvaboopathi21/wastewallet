@@ -118,8 +118,8 @@ export const CollectorHome = () => {
 
   useEffect(() => {
     fetchCollectorData();
-    // Poll offers every 3 seconds for lightning fast discovery
-    const interval = setInterval(fetchCollectorData, 3000);
+    // Poll offers every 1.5 seconds for lightning fast discovery
+    const interval = setInterval(fetchCollectorData, 1500);
     return () => clearInterval(interval);
   }, []);
 

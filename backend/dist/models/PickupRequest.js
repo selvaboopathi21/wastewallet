@@ -109,6 +109,10 @@ const pickupRequestSchema = new mongoose_1.Schema({
         type: Date,
         default: null,
     },
+    noCollectorsAvailable: {
+        type: Boolean,
+        default: false,
+    },
     // Pricing modes
     customerPricingPreference: {
         type: String,

@@ -136,10 +136,11 @@ const dispatchPickupRequest = async (pickupId) => {
         // Otherwise, keep the offer open in the zone for other collectors
         pickup.status = 'offered';
         pickup.currentOfferCollectorId = null;
+        pickup.noCollectorsAvailable = true;
         pickup.offerExpiresAt = new Date(now + 60 * 60 * 1000); // 1 hour open pool
         // Keep pickup.offeredTo intact so collectors who passed on it are not re-offered
         await pickup.save();
-        logger_1.default.info(`📢 Pickup ${pickup._id} kept active as open broadcast in zone.`);
+        logger_1.default.info(`📢 Pickup ${pickup._id} kept active as open broadcast in zone (No single collector available).`);
         try {
             const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
             await pickup.populate('customerId', 'name phone address');
@@ -147,6 +148,12 @@ const dispatchPickupRequest = async (pickupId) => {
             sockets.emitPickupOffered('all', {
                 pickupId: pickup._id.toString(),
                 pickup,
+            });
+            // Notify customer real-time that no collectors are currently free
+            sockets.emitStatusChanged(pickup._id.toString(), {
+                newStatus: 'offered',
+                collectorId: null,
+                noCollectorsAvailable: true,
             });
         }
         catch (err) {
@@ -175,14 +182,15 @@ const dispatchPickupRequest = async (pickupId) => {
     // Sort descending (highest score first)
     scoredCollectors.sort((a, b) => b.score - a.score);
     const bestCandidate = scoredCollectors[0].collector;
-    // Set 60-minute offer timeout so collectors have sufficient time to accept
-    const offerExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    // Set 20-second offer timeout so collectors have a fast active window, minimizing customer waiting time
+    const offerExpiresAt = new Date(Date.now() + 20 * 1000);
     pickup.status = 'offered';
     pickup.currentOfferCollectorId = bestCandidate._id;
     pickup.offerExpiresAt = offerExpiresAt;
+    pickup.noCollectorsAvailable = false;
     pickup.offeredTo.push(bestCandidate._id);
     await pickup.save();
-    logger_1.default.info(`📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (Expires in 60 mins)`);
+    logger_1.default.info(`📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (20s response timer)`);
     try {
         const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
         await pickup.populate('customerId', 'name phone address');
@@ -220,6 +228,7 @@ const atomicAcceptPickup = async (pickupId, collectorId) => {
             collectorId: new mongoose_1.Types.ObjectId(collectorId),
             currentOfferCollectorId: null,
             offerExpiresAt: null,
+            noCollectorsAvailable: false,
         },
     }, { new: true });
     if (!acceptedPickup) {

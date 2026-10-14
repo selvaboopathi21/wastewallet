@@ -42,7 +42,7 @@ export const checkExpiredOffers = async (): Promise<void> => {
 /**
  * Starts the recurring 10-second MongoDB polling job
  */
-export const startOfferTimeoutJob = (intervalMs = 10000): void => {
+export const startOfferTimeoutJob = (intervalMs = 4000): void => {
   if (intervalId) return; // Prevent duplicate timers
 
   logger.info(`🕒 Offer timeout checker started (runs every ${intervalMs / 1000}s)`);

@@ -44,7 +44,7 @@ exports.checkExpiredOffers = checkExpiredOffers;
 /**
  * Starts the recurring 10-second MongoDB polling job
  */
-const startOfferTimeoutJob = (intervalMs = 10000) => {
+const startOfferTimeoutJob = (intervalMs = 4000) => {
     if (intervalId)
         return; // Prevent duplicate timers
     logger_1.default.info(`🕒 Offer timeout checker started (runs every ${intervalMs / 1000}s)`);

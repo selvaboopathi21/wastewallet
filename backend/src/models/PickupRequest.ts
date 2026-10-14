@@ -80,6 +80,10 @@ const pickupRequestSchema = new Schema<IPickupRequest>(
       type: Date,
       default: null,
     },
+    noCollectorsAvailable: {
+      type: Boolean,
+      default: false,
+    },
     // Pricing modes
     customerPricingPreference: {
       type: String,

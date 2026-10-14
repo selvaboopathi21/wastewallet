@@ -131,6 +131,7 @@ export interface IPickupRequest extends Document {
   declinedBy?: Types.ObjectId[];
   currentOfferCollectorId?: Types.ObjectId | null;
   offerExpiresAt?: Date | null;
+  noCollectorsAvailable?: boolean;
   customerPricingPreference: PricingPreference;
   pricingMode: PricingMode;
   separateRequest: {
