@@ -16,22 +16,43 @@ export const toggleOnlineStatus = asyncHandler(async (req: Request, res: Respons
     throw new ApiError(400, 'isOnline must be a boolean (true or false)');
   }
 
-  const collector = await User.findByIdAndUpdate(
-    collectorId,
-    { isOnline },
-    { new: true }
-  );
+  const collector = await User.findById(collectorId);
+  if (!collector) {
+    throw new ApiError(404, 'Collector not found');
+  }
+
+  // Strict approval enforcement: unapproved collectors cannot go online!
+  if (isOnline && !collector.isApproved) {
+    throw new ApiError(
+      403,
+      'Your account is pending review by Admin. You cannot go online until approved.'
+    );
+  }
+
+  collector.isOnline = isOnline;
+  await collector.save();
 
   res.status(200).json({
     success: true,
     message: `Collector is now ${isOnline ? 'Online (Ready for pickups)' : 'Offline'}`,
-    data: { isOnline: collector?.isOnline },
+    data: { isOnline: collector.isOnline, isApproved: collector.isApproved },
   });
 });
 
 // GET /api/v1/collector/offers (Get pending job offers for this collector)
 export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
   const collectorId = req.user!._id;
+  const isApproved = req.user!.isApproved;
+
+  // Unapproved collectors must NOT receive any offers
+  if (!isApproved) {
+    return res.status(200).json({
+      success: true,
+      message: 'Pending Admin verification. No offers available until approved.',
+      data: { offers: [] },
+    });
+  }
+
   const userZoneId = req.user!.zoneId;
   const now = new Date();
 
@@ -96,6 +117,15 @@ export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
 // POST /api/v1/collector/pickups/:id/accept (Atomic Accept)
 export const acceptPickupOffer = asyncHandler(async (req: Request, res: Response) => {
   const collectorId = req.user!._id.toString();
+  const isApproved = req.user!.isApproved;
+
+  if (!isApproved) {
+    throw new ApiError(
+      403,
+      'Your account is pending review by Admin. You cannot accept pickups until verified.'
+    );
+  }
+
   const { id } = req.params;
 
   const acceptedPickup = await dispatchService.atomicAcceptPickup(id as string, collectorId);

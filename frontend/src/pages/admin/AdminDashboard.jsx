@@ -45,13 +45,23 @@ export const AdminDashboard = () => {
       ]);
 
       if (repRes.status === 'fulfilled') {
-        setReports(repRes.value?.data?.data || repRes.value?.data);
+        setReports(repRes.value?.data?.data || repRes.value?.data || repRes.value);
       }
       if (alertsRes.status === 'fulfilled') {
-        setFraudAlerts(alertsRes.value?.data?.data?.alerts || alertsRes.value?.data?.alerts || []);
+        setFraudAlerts(
+          alertsRes.value?.data?.alerts ||
+          alertsRes.value?.data?.data?.alerts ||
+          alertsRes.value?.alerts ||
+          []
+        );
       }
       if (colRes.status === 'fulfilled') {
-        setCollectors(colRes.value?.data?.data?.collectors || []);
+        const list =
+          colRes.value?.data?.collectors ||
+          colRes.value?.data?.data?.collectors ||
+          colRes.value?.collectors ||
+          [];
+        setCollectors(Array.isArray(list) ? list : []);
       }
     } catch (err) {
       console.error('Error fetching admin dashboard:', err);

@@ -206,6 +206,14 @@ export const atomicAcceptPickup = async (
   pickupId: string,
   collectorId: string
 ): Promise<IPickupRequest> => {
+  const collector = await User.findById(collectorId);
+  if (!collector || !collector.isApproved) {
+    throw new ApiError(
+      403,
+      'Your account is pending review by Admin. You cannot accept pickups until approved.'
+    );
+  }
+
   const now = new Date();
 
   // Atomically update ONLY if status is still 'offered' (or 'pending') AND not expired

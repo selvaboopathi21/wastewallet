@@ -210,6 +210,10 @@ exports.dispatchPickupRequest = dispatchPickupRequest;
  * Atomic Accept: ONE conditional MongoDB query ensures only one collector can win the job
  */
 const atomicAcceptPickup = async (pickupId, collectorId) => {
+    const collector = await User_1.default.findById(collectorId);
+    if (!collector || !collector.isApproved) {
+        throw new ApiError_1.default(403, 'Your account is pending review by Admin. You cannot accept pickups until approved.');
+    }
     const now = new Date();
     // Atomically update ONLY if status is still 'offered' (or 'pending') AND not expired
     const acceptedPickup = await PickupRequest_1.default.findOneAndUpdate({
