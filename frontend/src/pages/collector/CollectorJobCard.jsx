@@ -21,8 +21,8 @@ import api from '../../api/axios';
 import useAuth from '../../hooks/useAuth';
 import useSocket from '../../hooks/useSocket';
 
-const RATE_CARD = {
-  iron: { name: 'Iron & Steel', ratePaise: 3200, label: '₹32/kg' },
+const DEFAULT_RATE_CARD = {
+  iron: { name: 'Iron & Steel', ratePaise: 3400, label: '₹34/kg' },
   copper_wire: { name: 'Copper Wire', ratePaise: 45000, label: '₹450/kg' },
   plastic: { name: 'Plastic', ratePaise: 1800, label: '₹18/kg' },
   paper: { name: 'Paper & Cardboard', ratePaise: 1200, label: '₹12/kg' },
@@ -64,6 +64,7 @@ export const CollectorJobCard = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rateCard, setRateCard] = useState(DEFAULT_RATE_CARD);
 
   // Weighing inputs
   const [mode, setMode] = useState('separate'); // 'separate' | 'mixed'
@@ -82,6 +83,35 @@ export const CollectorJobCard = () => {
   // "Customer requested separate price" banner
   const [incomingSeparateRequest, setIncomingSeparateRequest] = useState(false);
 
+  // Fetch live rates dynamically from server to avoid any calculation mismatch
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const res = await api.get('/rates');
+        const list = res?.data?.rates || res?.data?.data?.rates || res?.rates || [];
+        if (Array.isArray(list) && list.length > 0) {
+          setRateCard((prev) => {
+            const updated = { ...prev };
+            list.forEach((r) => {
+              if (updated[r.category]) {
+                const rs = (r.ratePerKgPaise / 100).toFixed(0);
+                updated[r.category] = {
+                  ...updated[r.category],
+                  ratePaise: r.ratePerKgPaise,
+                  label: `₹${rs}/kg`,
+                };
+              }
+            });
+            return updated;
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load live rates, using defaults:', err.message);
+      }
+    };
+    fetchRates();
+  }, []);
+
   // Fetch pickup details
   const fetchPickupDetails = async () => {
     try {
@@ -92,6 +122,19 @@ export const CollectorJobCard = () => {
         setMode(data.pickup.pricingMode || 'separate');
         if (data.pickup.separateRequest?.requested && data.pickup.separateRequest?.status === 'pending') {
           setIncomingSeparateRequest(true);
+        }
+
+        // Pre-fill weighed items if already recorded
+        if (Array.isArray(data.items) && data.items.length > 0) {
+          const weightsMap = {};
+          data.items.forEach((item) => {
+            if (item.category && item.category !== 'mixed') {
+              weightsMap[item.category] = String(item.weightKg);
+            } else if (item.category === 'mixed') {
+              setMixedWeight(String(item.weightKg));
+            }
+          });
+          setSeparateWeights((prev) => ({ ...prev, ...weightsMap }));
         }
       }
     } catch (err) {
@@ -325,15 +368,15 @@ export const CollectorJobCard = () => {
     );
   }
 
-  // Calculate live amount preview for separate mode
+  // Calculate live amount preview for separate mode (integer paise to eliminate any rounding mismatch)
   const calculatedTotalPaise =
     mode === 'separate'
       ? Object.entries(separateWeights).reduce((sum, [cat, wt]) => {
           const num = parseFloat(wt) || 0;
-          const rate = RATE_CARD[cat]?.ratePaise || 0;
-          return sum + num * rate;
+          const rate = rateCard[cat]?.ratePaise || 0;
+          return sum + Math.round(num * rate);
         }, 0)
-      : (parseFloat(mixedWeight) || 0) * RATE_CARD.mixed.ratePaise;
+      : Math.round((parseFloat(mixedWeight) || 0) * (rateCard.mixed?.ratePaise || 1500));
 
   return (
     <div className="space-y-4">
@@ -492,7 +535,7 @@ export const CollectorJobCard = () => {
           <form onSubmit={handleSubmitWeights} className="space-y-3">
             {mode === 'separate' ? (
               <div className="grid grid-cols-2 gap-2 text-xs">
-                {Object.entries(RATE_CARD)
+                {Object.entries(rateCard)
                   .filter(([k]) => k !== 'mixed')
                   .map(([key, meta]) => (
                     <div key={key} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200">
@@ -526,7 +569,7 @@ export const CollectorJobCard = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800">Total Mixed Scrap Weight</span>
                   <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
-                    ₹15.00/kg Flat
+                    {rateCard.mixed?.label || '₹15/kg'} Flat
                   </span>
                 </div>
                 <div className="relative">
