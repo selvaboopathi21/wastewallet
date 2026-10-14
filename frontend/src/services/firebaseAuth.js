@@ -75,21 +75,25 @@ export const signInWithGooglePopup = async () => {
 };
 
 // 2. Real Phone SMS OTP via Firebase Phone Authentication
-export const sendFirebasePhoneOtp = async (phoneNumber, containerId = 'recaptcha-container') => {
-  await initFirebase();
-  if (!firebaseAuth) {
-    throw new Error('Firebase Auth not initialized');
-  }
+export const sendFirebasePhoneOtp = async (phoneNumber, containerId = 'recaptcha-container', timeoutMs = 2500) => {
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Firebase SMS verification timed out')), timeoutMs)
+  );
 
-  const { RecaptchaVerifier, signInWithPhoneNumber } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
+  const smsPromise = (async () => {
+    const isConfigured = await initFirebase();
+    if (!isConfigured || !firebaseAuth) {
+      throw new Error('Firebase Auth not initialized or domain unverified');
+    }
 
-  // Format international +91
-  const digits = phoneNumber.replace(/\D/g, '');
-  const formattedPhone = digits.startsWith('91') && digits.length === 12 
-    ? `+${digits}` 
-    : `+91${digits.slice(-10)}`;
+    const { RecaptchaVerifier, signInWithPhoneNumber } = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js');
 
-  try {
+    // Format international +91
+    const digits = phoneNumber.replace(/\D/g, '');
+    const formattedPhone = digits.startsWith('91') && digits.length === 12 
+      ? `+${digits}` 
+      : `+91${digits.slice(-10)}`;
+
     // Clear any previous recaptcha
     if (window.recaptchaVerifier) {
       try {
@@ -123,12 +127,16 @@ export const sendFirebasePhoneOtp = async (phoneNumber, containerId = 'recaptcha
       confirmationResult,
       phone: formattedPhone,
     };
+  })();
+
+  try {
+    return await Promise.race([smsPromise, timeoutPromise]);
   } catch (err) {
-    console.warn('Firebase Phone Auth SMS attempt:', err.code, err.message);
+    console.warn('Firebase Phone Auth SMS attempt:', err.message);
     return {
       success: false,
       error: err,
-      code: err.code,
+      code: err.code || 'timeout',
       message: err.message,
     };
   }

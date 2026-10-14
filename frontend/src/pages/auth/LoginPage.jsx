@@ -431,34 +431,32 @@ export const LoginPage = () => {
     // 1. Request backend OTP (saves to MongoDB)
     try {
       const res = await requestOtp(cleanPhone);
-      code = res?.data?.otp || res?.data?.data?.otp || '123456';
-      setDevOtp(code);
-      setOtp(code);
+      code = res?.data?.otp || res?.data?.data?.otp || res?.otp || '123456';
     } catch (backendErr) {
       console.warn('Backend requestOtp notice:', backendErr.message);
-      setDevOtp('123456');
-      setOtp('123456');
+      code = '123456';
     }
 
-    // 2. Dispatch real SMS via Firebase Phone Auth to user's physical phone
-    try {
-      const fbResult = await sendFirebasePhoneOtp(cleanPhone, 'recaptcha-container');
-      if (fbResult && fbResult.success) {
-        setConfirmationResult(fbResult.confirmationResult);
-        setSmsDeliveryStatus('firebase');
-        setInfoMessage(`📲 SMS dispatched via Firebase to +91 ${cleanPhone}! Enter code below:`);
-      } else {
-        setSmsDeliveryStatus('service');
-        setInfoMessage(`SMS Verification code generated: [${code}]`);
-      }
-    } catch (fbErr) {
-      console.warn('Firebase SMS attempt notice:', fbErr.message);
-      setSmsDeliveryStatus('service');
-      setInfoMessage(`SMS Verification code generated: [${code}]`);
-    }
-
+    // Immediately transition to the OTP step so user is NEVER stuck on "Sending OTP..."
+    setDevOtp(code);
+    setOtp(code);
+    setInfoMessage(`SMS Verification code generated: [${code}]`);
+    setSmsDeliveryStatus('service');
     setStep('otp');
     setLoading(false);
+
+    // 2. Dispatch real SMS via Firebase Phone Auth in background without blocking UI
+    sendFirebasePhoneOtp(cleanPhone, 'recaptcha-container', 2500)
+      .then((fbResult) => {
+        if (fbResult && fbResult.success) {
+          setConfirmationResult(fbResult.confirmationResult);
+          setSmsDeliveryStatus('firebase');
+          setInfoMessage(`📲 SMS dispatched via Firebase to +91 ${cleanPhone}! Enter code below:`);
+        }
+      })
+      .catch((fbErr) => {
+        console.warn('Firebase SMS background attempt:', fbErr.message);
+      });
   };
 
   const handleVerifyOtp = async (e) => {
@@ -476,13 +474,16 @@ export const LoginPage = () => {
 
     setLoading(true);
     try {
-      // If Firebase confirmationResult is active, verify with Firebase
+      // If Firebase confirmationResult is active, verify with Firebase with quick timeout
       if (confirmationResult) {
         try {
-          await confirmationResult.confirm(cleanOtp);
+          await Promise.race([
+            confirmationResult.confirm(cleanOtp),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase confirm timeout')), 1500)),
+          ]);
           console.log('Firebase Phone Auth confirmed!');
         } catch (fbConfirmErr) {
-          console.warn('Firebase confirm failed, verifying with backend:', fbConfirmErr.message);
+          console.warn('Firebase confirm notice, verifying with backend:', fbConfirmErr.message);
         }
       }
 
@@ -1279,11 +1280,11 @@ export const LoginPage = () => {
                     : `💡 Code sent to +91 ${phone}. Tap "Paste & Auto-Fill" or enter the 6-digit code above.`}
                 </p>
               </div>
-
-              {/* Invisible Firebase Recaptcha Container */}
-              <div id="recaptcha-container"></div>
             </form>
           )}
+
+          {/* Invisible Firebase Recaptcha Container - always in DOM */}
+          <div id="recaptcha-container"></div>
         </div>
       </div>
     </div>
