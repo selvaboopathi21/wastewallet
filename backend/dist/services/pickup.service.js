@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCustomerPickups = exports.getPickupDetails = exports.createPickupRequest = void 0;
+exports.cancelPickupRequest = exports.getCustomerPickups = exports.getPickupDetails = exports.createPickupRequest = void 0;
 // Pickup Service: Business logic for scrap collection requests and zone detection
 const PickupRequest_1 = __importDefault(require("../models/PickupRequest"));
 const PickupItem_1 = __importDefault(require("../models/PickupItem"));
@@ -138,8 +138,43 @@ const getCustomerPickups = async (customerId) => {
         .sort({ createdAt: -1 });
 };
 exports.getCustomerPickups = getCustomerPickups;
+/**
+ * Cancels a pickup request (by customer or admin)
+ */
+const cancelPickupRequest = async (pickupId, userId, userRole) => {
+    const pickup = await PickupRequest_1.default.findById(pickupId);
+    if (!pickup) {
+        throw new ApiError_1.default(404, 'Pickup request not found');
+    }
+    // Ensure only the customer who booked it or an admin can cancel
+    if (userRole !== 'admin' && pickup.customerId.toString() !== userId) {
+        throw new ApiError_1.default(403, 'You do not have permission to cancel this pickup');
+    }
+    // Prevent cancellation if already arrived, weighed, confirmed, or completed
+    if (['arrived', 'weighed', 'confirmed', 'paid', 'completed'].includes(pickup.status)) {
+        throw new ApiError_1.default(400, `Cannot cancel pickup once collector has arrived (Current status: ${pickup.status})`);
+    }
+    const previousStatus = pickup.status;
+    pickup.status = 'cancelled';
+    pickup.currentOfferCollectorId = null;
+    pickup.offerExpiresAt = null;
+    await pickup.save();
+    try {
+        const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
+        sockets.emitStatusChanged(pickup._id.toString(), {
+            newStatus: 'cancelled',
+            previousStatus,
+        });
+    }
+    catch (err) {
+        // Sockets emission non-blocking
+    }
+    return pickup;
+};
+exports.cancelPickupRequest = cancelPickupRequest;
 exports.default = {
     createPickupRequest: exports.createPickupRequest,
     getPickupDetails: exports.getPickupDetails,
     getCustomerPickups: exports.getCustomerPickups,
+    cancelPickupRequest: exports.cancelPickupRequest,
 };

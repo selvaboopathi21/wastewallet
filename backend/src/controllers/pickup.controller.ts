@@ -101,10 +101,25 @@ export const requestSeparatePrice = asyncHandler(async (req: Request, res: Respo
   });
 });
 
+export const cancelPickup = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!._id.toString();
+  const userRole = req.user!.role;
+  const { id } = req.params;
+
+  const cancelledPickup = await pickupService.cancelPickupRequest(id as string, userId, userRole);
+
+  res.status(200).json({
+    success: true,
+    message: 'Pickup request has been cancelled successfully',
+    data: { pickup: cancelledPickup },
+  });
+});
+
 export default {
   createPickup,
   getPickup,
   getMyPickups,
   confirmPickupOtp,
   requestSeparatePrice,
+  cancelPickup,
 };

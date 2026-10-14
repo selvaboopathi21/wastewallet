@@ -76,6 +76,7 @@ exports.getMyOffers = (0, asyncHandler_1.default)(async (req, res) => {
         : {};
     const offers = await PickupRequest_1.default.find({
         status: { $in: ['offered', 'pending'] },
+        offeredTo: { $nin: [collectorId] }, // Exclude any offers this collector has declined/passed
         ...zoneCondition,
         $and: [
             {

@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requestSeparatePrice = exports.confirmPickupOtp = exports.getMyPickups = exports.getPickup = exports.createPickup = void 0;
+exports.cancelPickup = exports.requestSeparatePrice = exports.confirmPickupOtp = exports.getMyPickups = exports.getPickup = exports.createPickup = void 0;
 const pickup_service_1 = __importDefault(require("../services/pickup.service"));
 const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
@@ -118,10 +118,22 @@ exports.requestSeparatePrice = (0, asyncHandler_1.default)(async (req, res) => {
         data: { pickup: updatedPickup },
     });
 });
+exports.cancelPickup = (0, asyncHandler_1.default)(async (req, res) => {
+    const userId = req.user._id.toString();
+    const userRole = req.user.role;
+    const { id } = req.params;
+    const cancelledPickup = await pickup_service_1.default.cancelPickupRequest(id, userId, userRole);
+    res.status(200).json({
+        success: true,
+        message: 'Pickup request has been cancelled successfully',
+        data: { pickup: cancelledPickup },
+    });
+});
 exports.default = {
     createPickup: exports.createPickup,
     getPickup: exports.getPickup,
     getMyPickups: exports.getMyPickups,
     confirmPickupOtp: exports.confirmPickupOtp,
     requestSeparatePrice: exports.requestSeparatePrice,
+    cancelPickup: exports.cancelPickup,
 };

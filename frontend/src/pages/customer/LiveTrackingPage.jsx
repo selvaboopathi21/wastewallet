@@ -237,6 +237,25 @@ export const LiveTrackingPage = () => {
     }
   };
 
+  // Customer cancels active pickup request
+  const [cancelling, setCancelling] = useState(false);
+  const handleCancelPickup = async () => {
+    if (!window.confirm('Are you sure you want to cancel this scrap pickup request?')) {
+      return;
+    }
+    setCancelling(true);
+    try {
+      await api.patch(`/pickups/${pickupId}/cancel`);
+      setPickup((prev) => ({ ...prev, status: 'cancelled' }));
+      alert('Pickup request has been cancelled.');
+      navigate('/customer');
+    } catch (err) {
+      alert(err.message || 'Failed to cancel pickup');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   // Customer submits rating after pickup is completed
   const handleSubmitRating = async (e) => {
     e.preventDefault();
@@ -368,14 +387,39 @@ export const LiveTrackingPage = () => {
             <Phone className="w-4 h-4" />
           </a>
         </div>
-      ) : (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3 text-xs text-amber-900">
-          <Truck className="w-5 h-5 text-amber-600 shrink-0 animate-bounce" />
+      ) : pickup.status === 'cancelled' ? (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center justify-between text-xs text-rose-900">
           <div>
-            <span className="font-bold">Locating Nearest Collector...</span>
-            <p className="text-2xs text-amber-800 mt-0.5">
-              Evaluating collector ratings, distance, and real-time workload in your zone.
-            </p>
+            <span className="font-bold block">Pickup Request Cancelled</span>
+            <p className="text-2xs text-rose-700 mt-0.5">This collection request has been closed.</p>
+          </div>
+          <button
+            onClick={() => navigate('/customer')}
+            className="px-3 py-1.5 bg-white border border-rose-300 text-rose-800 font-bold rounded-xl text-xs hover:bg-rose-50"
+          >
+            Back Home
+          </button>
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2.5">
+          <div className="flex items-center gap-3 text-xs text-amber-900">
+            <Truck className="w-5 h-5 text-amber-600 shrink-0 animate-bounce" />
+            <div>
+              <span className="font-bold">Locating Nearest Collector...</span>
+              <p className="text-2xs text-amber-800 mt-0.5">
+                Evaluating collector ratings, distance, and real-time workload in your zone.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end pt-1 border-t border-amber-200/60">
+            <button
+              type="button"
+              onClick={handleCancelPickup}
+              disabled={cancelling}
+              className="text-xs text-rose-600 hover:text-rose-700 font-bold hover:underline cursor-pointer flex items-center gap-1 bg-white hover:bg-rose-50 border border-rose-200 px-3 py-1 rounded-xl transition-colors disabled:opacity-50"
+            >
+              <span>✕ Cancel Pickup</span>
+            </button>
           </div>
         </div>
       )}

@@ -19,6 +19,8 @@ router.get('/', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.CUSTOME
 router.post('/:id/request-separate', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.CUSTOMER, constants_1.ROLES.COLLECTOR, constants_1.ROLES.ADMIN), pickup_controller_1.requestSeparatePrice);
 // Confirm on-site weights and amount with 6-digit OTP
 router.post('/:id/confirm-otp', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.CUSTOMER, constants_1.ROLES.COLLECTOR, constants_1.ROLES.ADMIN), pickup_controller_1.confirmPickupOtp);
+// Cancel pickup request (Customer or Admin)
+router.patch('/:id/cancel', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.CUSTOMER, constants_1.ROLES.COLLECTOR, constants_1.ROLES.ADMIN), pickup_controller_1.cancelPickup);
 // View specific pickup details (Customer, Collector, or Admin)
 router.get('/:id', auth_1.default, pickup_controller_1.getPickup);
 exports.default = router;

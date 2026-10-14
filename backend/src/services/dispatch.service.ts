@@ -115,11 +115,11 @@ export const dispatchPickupRequest = async (
       return pickup;
     }
 
-    // Otherwise, keep the offer open in the zone so ANY collector can see and accept it!
+    // Otherwise, keep the offer open in the zone for other collectors
     pickup.status = 'offered';
     pickup.currentOfferCollectorId = null;
     pickup.offerExpiresAt = new Date(now + 60 * 60 * 1000); // 1 hour open pool
-    pickup.offeredTo = []; // Reset offeredTo so collectors can be considered again
+    // Keep pickup.offeredTo intact so collectors who passed on it are not re-offered
     await pickup.save();
     logger.info(`📢 Pickup ${pickup._id} kept active as open broadcast in zone.`);
 
@@ -250,16 +250,29 @@ export const declinePickup = async (
   pickupId: string,
   collectorId: string
 ): Promise<IPickupRequest | null> => {
+  const collectorObjId = new Types.ObjectId(collectorId);
+
+  // Find active pickup request that is offered or pending
   const pickup = await PickupRequest.findOne({
     _id: pickupId,
-    status: 'offered',
-    currentOfferCollectorId: new Types.ObjectId(collectorId),
+    status: { $in: ['offered', 'pending'] },
   });
 
   if (!pickup) {
-    throw new ApiError(400, 'No active offer found for this collector on this pickup');
+    throw new ApiError(404, 'No active pickup offer found for this ID');
   }
 
+  // Add collector to offeredTo (declined list) so they are never offered this pickup again
+  if (!pickup.offeredTo.some((id) => id.toString() === collectorId)) {
+    pickup.offeredTo.push(collectorObjId);
+  }
+
+  // If this collector was currently designated, clear currentOfferCollectorId
+  if (pickup.currentOfferCollectorId && pickup.currentOfferCollectorId.toString() === collectorId) {
+    pickup.currentOfferCollectorId = null;
+  }
+
+  await pickup.save();
   logger.info(`Collector ${collectorId} declined pickup ${pickupId}. Finding next collector...`);
   return await dispatchPickupRequest(pickup._id);
 };

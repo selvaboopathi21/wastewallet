@@ -135,8 +135,47 @@ export const getCustomerPickups = async (customerId: string) => {
     .sort({ createdAt: -1 });
 };
 
+/**
+ * Cancels a pickup request (by customer or admin)
+ */
+export const cancelPickupRequest = async (pickupId: string, userId: string, userRole: string) => {
+  const pickup = await PickupRequest.findById(pickupId);
+  if (!pickup) {
+    throw new ApiError(404, 'Pickup request not found');
+  }
+
+  // Ensure only the customer who booked it or an admin can cancel
+  if (userRole !== 'admin' && pickup.customerId.toString() !== userId) {
+    throw new ApiError(403, 'You do not have permission to cancel this pickup');
+  }
+
+  // Prevent cancellation if already arrived, weighed, confirmed, or completed
+  if (['arrived', 'weighed', 'confirmed', 'paid', 'completed'].includes(pickup.status)) {
+    throw new ApiError(400, `Cannot cancel pickup once collector has arrived (Current status: ${pickup.status})`);
+  }
+
+  const previousStatus = pickup.status;
+  pickup.status = 'cancelled';
+  pickup.currentOfferCollectorId = null;
+  pickup.offerExpiresAt = null;
+  await pickup.save();
+
+  try {
+    const sockets = (await import('../sockets')).default;
+    sockets.emitStatusChanged(pickup._id.toString(), {
+      newStatus: 'cancelled',
+      previousStatus,
+    });
+  } catch (err: any) {
+    // Sockets emission non-blocking
+  }
+
+  return pickup;
+};
+
 export default {
   createPickupRequest,
   getPickupDetails,
   getCustomerPickups,
+  cancelPickupRequest,
 };

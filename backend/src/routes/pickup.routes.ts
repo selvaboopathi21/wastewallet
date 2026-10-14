@@ -6,6 +6,7 @@ import {
   getMyPickups,
   confirmPickupOtp,
   requestSeparatePrice,
+  cancelPickup,
 } from '../controllers/pickup.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
@@ -40,6 +41,14 @@ router.post(
   authenticate,
   restrictTo(ROLES.CUSTOMER, ROLES.COLLECTOR, ROLES.ADMIN),
   confirmPickupOtp
+);
+
+// Cancel pickup request (Customer or Admin)
+router.patch(
+  '/:id/cancel',
+  authenticate,
+  restrictTo(ROLES.CUSTOMER, ROLES.COLLECTOR, ROLES.ADMIN),
+  cancelPickup
 );
 
 // View specific pickup details (Customer, Collector, or Admin)

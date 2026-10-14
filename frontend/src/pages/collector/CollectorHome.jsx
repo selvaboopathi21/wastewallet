@@ -39,6 +39,25 @@ export const CollectorHome = () => {
     totalCashPaid: 0,
   });
 
+  const [declinedOfferIds, setDeclinedOfferIds] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('ww_declined_offers');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const recordDeclinedOfferId = (id) => {
+    setDeclinedOfferIds((prev) => {
+      const updated = Array.from(new Set([...prev, id]));
+      try {
+        sessionStorage.setItem('ww_declined_offers', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
   // Re-check approval status on demand
   const checkApprovalStatus = async () => {
     setCheckingApproval(true);
@@ -70,24 +89,9 @@ export const CollectorHome = () => {
       ]);
 
       const rawOffers = offersRes?.data?.offers || offersRes?.offers || [];
-      setOffers((prev) => {
-        const map = new Map();
-        // Server offers are primary
-        rawOffers.forEach((o) => {
-          if (o?._id) map.set(o._id, o);
-        });
-        // Retain unexpired offers from state that might still be active
-        const now = new Date();
-        prev.forEach((o) => {
-          if (o?._id && !map.has(o._id)) {
-            const isUnexpired = !o.offerExpiresAt || new Date(o.offerExpiresAt) > now;
-            if (['offered', 'pending'].includes(o.status) && isUnexpired) {
-              map.set(o._id, o);
-            }
-          }
-        });
-        return Array.from(map.values());
-      });
+      // Filter out any offers that the collector has passed on
+      const validOffers = rawOffers.filter((o) => o?._id && !declinedOfferIds.includes(o._id));
+      setOffers(validOffers);
       const jobs = jobsRes?.data?.activeJobs || jobsRes?.activeJobs || [];
       setActiveJobs(jobs);
 
@@ -124,7 +128,7 @@ export const CollectorHome = () => {
     if (!socket) return;
 
     const handlePickupOffered = (eventData) => {
-      if (eventData?.pickup) {
+      if (eventData?.pickup && !declinedOfferIds.includes(eventData.pickup._id)) {
         setOffers((prev) => {
           const exists = prev.some((o) => o._id === eventData.pickup._id);
           if (exists) {
@@ -188,14 +192,18 @@ export const CollectorHome = () => {
     }
   };
 
-  // Decline incoming offer
+  // Decline incoming offer (Pass on this pickup)
   const handleDeclineOffer = async (pickupId) => {
+    // 1. Instantly remove from local UI and record in session so polling never brings it back
+    recordDeclinedOfferId(pickupId);
+    setOffers((prev) => prev.filter((o) => o._id !== pickupId));
     setRespondingOfferId(pickupId);
+
+    // 2. Notify backend to pass offer to next collector
     try {
       await api.post(`/collector/pickups/${pickupId}/decline`);
-      setOffers((prev) => prev.filter((o) => o._id !== pickupId));
     } catch (err) {
-      console.error('Error declining offer:', err);
+      console.warn('Decline offer backend notice:', err.message);
     } finally {
       setRespondingOfferId(null);
     }
