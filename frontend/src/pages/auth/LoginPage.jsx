@@ -631,34 +631,11 @@ export const LoginPage = () => {
       navigate(destination, { replace: true });
     } catch (err) {
       console.warn('Reset password error:', err.message);
-      // If Render backend is still deploying the new endpoint (Route not found), sign user in smoothly
-      if (err.message && (err.message.includes('Route not found') || err.message.includes('Network Error'))) {
-        const match =
-          FALLBACK_ACCOUNTS[cleanPhone] ||
-          Object.values(FALLBACK_ACCOUNTS).find((acc) => acc.user.phone === cleanPhone) ||
-          {
-            user: {
-              _id: '6aca7fcdde58f6a40cd62e28',
-              id: '6aca7fcdde58f6a40cd62e28',
-              name: 'Selvaboopathi (Collector)',
-              phone: cleanPhone,
-              role: role || 'collector',
-              isApproved: true,
-            },
-            token: 'mock-jwt-token-reset',
-            destination: `/${role || 'collector'}`,
-          };
-
-        loginWithToken(match.token, match.user);
-        const dest = {
-          customer: '/customer',
-          collector: '/collector',
-          store_staff: '/store',
-          admin: '/admin',
-        }[match.user.role || role] || '/customer';
-        return navigate(dest, { replace: true });
+      if (err.message && err.message.includes('Route not found')) {
+        setError('Backend update is pending deployment on Render. Please trigger Manual Deploy in your Render dashboard, or run on local backend.');
+      } else {
+        setError(err.message || 'Password reset failed. Please check your OTP code.');
       }
-      setError(err.message || 'Password reset failed. Please check your OTP code.');
     } finally {
       setLoading(false);
     }
