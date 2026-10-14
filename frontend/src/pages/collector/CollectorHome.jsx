@@ -320,31 +320,43 @@ export const CollectorHome = () => {
         </div>
       </div>
 
-      {/* End-of-Day Warehouse Deposit Action Card */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-4 shadow-sm space-y-2.5 border border-slate-700/60">
+      {/* Central Warehouse Deposit Action Card */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-4 shadow-sm space-y-3 border border-slate-700/60">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <QrCode className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <QrCode className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xs font-black text-white">Central Warehouse Deposit</h3>
-              <p className="text-2xs text-slate-300">
-                End-of-day scrap handover & gross scale intake
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-black text-white">Central Warehouse Deposit</h3>
+                <span className="text-3xs font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  {stats.completedToday} Done
+                </span>
+              </div>
+              <p className="text-2xs text-slate-300 mt-0.5">
+                Handover collected scrap bags at warehouse gross intake scale
               </p>
             </div>
           </div>
-          <span className="text-2xs font-mono font-bold bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full">
-            {stats.completedToday} Done
+        </div>
+
+        <div className="bg-white/5 rounded-2xl p-2.5 border border-white/10 flex items-center justify-between text-2xs">
+          <div className="flex items-center gap-1.5 text-slate-300">
+            <span className="text-emerald-400">ℹ️</span>
+            <span>Show QR to Warehouse Staff to transfer trip details</span>
+          </div>
+          <span className="font-mono font-bold text-emerald-300">
+            {stats.totalWeightKg.toFixed(1)} kg ready
           </span>
         </div>
 
         <button
           onClick={() => navigate('/collector/batch')}
-          className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all"
+          className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-all active:scale-98"
         >
           <QrCode className="w-4 h-4" />
-          Generate Deposit QR Code ➔
+          <span>Generate Deposit QR Code ➔</span>
         </button>
       </div>
 
@@ -518,26 +530,6 @@ export const CollectorHome = () => {
         </div>
       )}
 
-      {/* End of Day Batch QR Button */}
-      <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <QrCode className="w-5 h-5 text-emerald-400" />
-            <div>
-              <h4 className="text-xs font-bold">End-of-Day Central Store Deposit</h4>
-              <p className="text-2xs text-slate-400">Handover collected scrap bags at warehouse</p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => navigate('/collector/batch')}
-          className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-        >
-          <QrCode className="w-3.5 h-3.5" />
-          Generate Deposit QR Code
-        </button>
-      </div>
     </div>
   );
 };
