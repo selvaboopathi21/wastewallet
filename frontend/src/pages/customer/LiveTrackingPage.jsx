@@ -285,8 +285,18 @@ export const LiveTrackingPage = () => {
         comment: ratingComment.trim(),
       });
       setRatingSubmitted(true);
+      setTimeout(() => {
+        navigate('/customer', { replace: true });
+      }, 1500);
     } catch (err) {
-      alert(err.message || 'Failed to submit rating');
+      if (err.message && err.message.toLowerCase().includes('already submitted')) {
+        setRatingSubmitted(true);
+        setTimeout(() => {
+          navigate('/customer', { replace: true });
+        }, 1200);
+      } else {
+        alert(err.message || 'Failed to submit rating');
+      }
     } finally {
       setSubmittingRating(false);
     }
@@ -687,8 +697,21 @@ export const LiveTrackingPage = () => {
           </div>
 
           {ratingSubmitted ? (
-            <div className="p-3 bg-emerald-50 rounded-xl text-center text-xs font-bold text-emerald-800">
-              🎉 Thank you! Your review helps maintain transparent service standards.
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-2xl text-center space-y-2.5">
+              <span className="text-xl">🎉</span>
+              <h4 className="text-sm font-black text-emerald-950">Review Submitted Successfully!</h4>
+              <p className="text-xs text-emerald-800">
+                Thank you! Your review helps maintain transparent service standards.
+              </p>
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/customer')}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 transition-all"
+                >
+                  <span>Return to Dashboard Now ➔</span>
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmitRating} className="space-y-3">
