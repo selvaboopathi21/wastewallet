@@ -99,14 +99,42 @@ export const dispatchPickupRequest = async (
   }
 
   if (eligibleCollectors.length === 0) {
-    // If no more collectors are available, keep offered or mark expired
-    if (pickup.status === 'offered' || pickup.status === 'pending') {
-      pickup.status = 'expired';
-      pickup.currentOfferCollectorId = null;
-      pickup.offerExpiresAt = null;
-      await pickup.save();
-      logger.warn(`⚠️ Pickup ${pickup._id} expired: No eligible collectors available in zone.`);
+    // If all collectors in offeredTo were already cycled through, check pickup age
+    const now = Date.now();
+    const pickupAgeMs = now - new Date(pickup.createdAt).getTime();
+
+    // Only mark permanently expired if older than 2 hours
+    if (pickupAgeMs > 2 * 60 * 60 * 1000) {
+      if (pickup.status === 'offered' || pickup.status === 'pending') {
+        pickup.status = 'expired';
+        pickup.currentOfferCollectorId = null;
+        pickup.offerExpiresAt = null;
+        await pickup.save();
+        logger.warn(`⚠️ Pickup ${pickup._id} permanently expired after 2 hours.`);
+      }
+      return pickup;
     }
+
+    // Otherwise, keep the offer open in the zone so ANY collector can see and accept it!
+    pickup.status = 'offered';
+    pickup.currentOfferCollectorId = null;
+    pickup.offerExpiresAt = new Date(now + 60 * 60 * 1000); // 1 hour open pool
+    pickup.offeredTo = []; // Reset offeredTo so collectors can be considered again
+    await pickup.save();
+    logger.info(`📢 Pickup ${pickup._id} kept active as open broadcast in zone.`);
+
+    try {
+      const sockets = (await import('../sockets')).default;
+      await pickup.populate('customerId', 'name phone address');
+      await pickup.populate('zoneId', 'name');
+      sockets.emitPickupOffered('all', {
+        pickupId: pickup._id.toString(),
+        pickup,
+      });
+    } catch (err: any) {
+      logger.warn(`Could not emit Socket event pickup.offered: ${err.message}`);
+    }
+
     return pickup;
   }
 
@@ -135,8 +163,8 @@ export const dispatchPickupRequest = async (
   scoredCollectors.sort((a, b) => b.score - a.score);
   const bestCandidate = scoredCollectors[0].collector;
 
-  // Set 15-minute offer timeout so collectors have sufficient time to accept
-  const offerExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  // Set 60-minute offer timeout so collectors have sufficient time to accept
+  const offerExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
   pickup.status = 'offered';
   pickup.currentOfferCollectorId = bestCandidate._id;
@@ -145,11 +173,13 @@ export const dispatchPickupRequest = async (
 
   await pickup.save();
   logger.info(
-    `📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (Expires in 15 mins)`
+    `📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (Expires in 60 mins)`
   );
 
   try {
     const sockets = (await import('../sockets')).default;
+    await pickup.populate('customerId', 'name phone address');
+    await pickup.populate('zoneId', 'name');
     sockets.emitPickupOffered(bestCandidate._id.toString(), {
       pickupId: pickup._id.toString(),
       pickup,

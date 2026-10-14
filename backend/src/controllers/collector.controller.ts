@@ -36,14 +36,22 @@ export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
   const now = new Date();
 
   // Find active, unexpired offers: offered to this collector OR offered in their zone
+  const zoneCondition = userZoneId
+    ? {
+        $or: [
+          { currentOfferCollectorId: collectorId },
+          { zoneId: userZoneId },
+          { zoneId: null },
+          { zoneId: { $exists: false } },
+          { currentOfferCollectorId: null },
+          { currentOfferCollectorId: { $exists: false } },
+        ],
+      }
+    : {};
+
   const offers = await PickupRequest.find({
-    status: 'offered',
-    $or: [
-      { currentOfferCollectorId: collectorId },
-      { currentOfferCollectorId: null },
-      { currentOfferCollectorId: { $exists: false } },
-      ...(userZoneId ? [{ zoneId: userZoneId }] : [{}]),
-    ],
+    status: { $in: ['offered', 'pending'] },
+    ...zoneCondition,
     $and: [
       {
         $or: [
@@ -53,8 +61,9 @@ export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
       },
     ],
   })
-    .populate('customerId', 'name phone')
-    .populate('zoneId', 'name');
+    .populate('customerId', 'name phone address')
+    .populate('zoneId', 'name')
+    .sort({ createdAt: -1 });
 
   res.status(200).json({
     success: true,

@@ -124,7 +124,8 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
 // POST /api/v1/auth/login
 export const login = asyncHandler(async (req: Request, res: Response) => {
-  const { identifier, password } = req.body;
+  const identifier = req.body.identifier || req.body.phone || req.body.email;
+  const { password } = req.body;
   const result = await authService.loginWithPassword({
     identifier,
     password,

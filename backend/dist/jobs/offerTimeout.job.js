@@ -12,16 +12,27 @@ let intervalId = null;
 const checkExpiredOffers = async () => {
     try {
         const now = new Date();
-        // Query MongoDB directly for any offers where the 60-second timer has run out
+        // Query MongoDB directly for any offers where the timer has run out
         const expiredOffers = await PickupRequest_1.default.find({
             status: 'offered',
             offerExpiresAt: { $lte: now },
         });
         if (expiredOffers.length > 0) {
-            logger_1.default.info(`⏱️ Found ${expiredOffers.length} expired offer(s). Re-routing to next collectors...`);
+            logger_1.default.info(`⏱️ Found ${expiredOffers.length} timed-out offer(s). Re-routing or extending pool...`);
             for (const pickup of expiredOffers) {
-                logger_1.default.info(`Offer expired for pickup ${pickup._id} (Collector ${pickup.currentOfferCollectorId}). Re-dispatching...`);
-                await dispatch_service_1.default.dispatchPickupRequest(pickup._id);
+                const pickupAgeMs = now.getTime() - new Date(pickup.createdAt).getTime();
+                // If pickup request is older than 2 hours, permanently expire it
+                if (pickupAgeMs > 2 * 60 * 60 * 1000) {
+                    pickup.status = 'expired';
+                    pickup.currentOfferCollectorId = null;
+                    pickup.offerExpiresAt = null;
+                    await pickup.save();
+                    logger_1.default.warn(`⚠️ Pickup ${pickup._id} permanently expired after 2 hours.`);
+                }
+                else {
+                    // Re-dispatch or keep offer active in zone
+                    await dispatch_service_1.default.dispatchPickupRequest(pickup._id);
+                }
             }
         }
     }

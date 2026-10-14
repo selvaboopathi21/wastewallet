@@ -115,7 +115,8 @@ exports.register = (0, asyncHandler_1.default)(async (req, res) => {
 });
 // POST /api/v1/auth/login
 exports.login = (0, asyncHandler_1.default)(async (req, res) => {
-    const { identifier, password } = req.body;
+    const identifier = req.body.identifier || req.body.phone || req.body.email;
+    const { password } = req.body;
     const result = await auth_service_1.default.loginWithPassword({
         identifier,
         password,

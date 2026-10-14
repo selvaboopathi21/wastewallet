@@ -70,7 +70,24 @@ export const CollectorHome = () => {
       ]);
 
       const rawOffers = offersRes?.data?.offers || offersRes?.offers || [];
-      setOffers(rawOffers);
+      setOffers((prev) => {
+        const map = new Map();
+        // Server offers are primary
+        rawOffers.forEach((o) => {
+          if (o?._id) map.set(o._id, o);
+        });
+        // Retain unexpired offers from state that might still be active
+        const now = new Date();
+        prev.forEach((o) => {
+          if (o?._id && !map.has(o._id)) {
+            const isUnexpired = !o.offerExpiresAt || new Date(o.offerExpiresAt) > now;
+            if (['offered', 'pending'].includes(o.status) && isUnexpired) {
+              map.set(o._id, o);
+            }
+          }
+        });
+        return Array.from(map.values());
+      });
       const jobs = jobsRes?.data?.activeJobs || jobsRes?.activeJobs || [];
       setActiveJobs(jobs);
 
@@ -97,8 +114,8 @@ export const CollectorHome = () => {
 
   useEffect(() => {
     fetchCollectorData();
-    // Poll offers every 2.5 seconds for lightning fast discovery
-    const interval = setInterval(fetchCollectorData, 2500);
+    // Poll offers every 3 seconds for lightning fast discovery
+    const interval = setInterval(fetchCollectorData, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -110,11 +127,14 @@ export const CollectorHome = () => {
       if (eventData?.pickup) {
         setOffers((prev) => {
           const exists = prev.some((o) => o._id === eventData.pickup._id);
-          if (exists) return prev;
+          if (exists) {
+            return prev.map((o) => (o._id === eventData.pickup._id ? { ...o, ...eventData.pickup } : o));
+          }
           return [eventData.pickup, ...prev];
         });
       }
-      fetchCollectorData();
+      // Give MongoDB a brief moment to finish indexing before refreshing
+      setTimeout(fetchCollectorData, 500);
     };
 
     const handleStatusChanged = () => {
@@ -336,8 +356,9 @@ export const CollectorHome = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
               Incoming Pickup Offers ({offers.length})
             </h3>
-            <span className="text-2xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-              60s Timer Active
+            <span className="text-2xs font-bold text-emerald-850 bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-mono">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+              Available to Accept
             </span>
           </div>
 
