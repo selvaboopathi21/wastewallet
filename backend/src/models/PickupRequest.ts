@@ -65,6 +65,12 @@ const pickupRequestSchema = new Schema<IPickupRequest>(
         ref: 'User',
       },
     ],
+    declinedBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
     currentOfferCollectorId: {
       type: Schema.Types.ObjectId,
       ref: 'User',

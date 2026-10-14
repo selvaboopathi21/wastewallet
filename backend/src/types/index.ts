@@ -128,6 +128,7 @@ export interface IPickupRequest extends Document {
   preferredTime?: string;
   status: PickupStatus;
   offeredTo: Types.ObjectId[];
+  declinedBy?: Types.ObjectId[];
   currentOfferCollectorId?: Types.ObjectId | null;
   offerExpiresAt?: Date | null;
   customerPricingPreference: PricingPreference;

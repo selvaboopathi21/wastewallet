@@ -262,7 +262,15 @@ export const declinePickup = async (
     throw new ApiError(404, 'No active pickup offer found for this ID');
   }
 
-  // Add collector to offeredTo (declined list) so they are never offered this pickup again
+  // Record collector in declinedBy so getMyOffers permanently filters it out
+  if (!pickup.declinedBy) {
+    pickup.declinedBy = [];
+  }
+  if (!pickup.declinedBy.some((id) => id.toString() === collectorId)) {
+    pickup.declinedBy.push(collectorObjId);
+  }
+
+  // Add collector to offeredTo so dispatch algorithm moves to other candidates
   if (!pickup.offeredTo.some((id) => id.toString() === collectorId)) {
     pickup.offeredTo.push(collectorObjId);
   }

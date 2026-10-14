@@ -61,23 +61,43 @@ exports.getMyOffers = (0, asyncHandler_1.default)(async (req, res) => {
     const collectorId = req.user._id;
     const userZoneId = req.user.zoneId;
     const now = new Date();
-    // Find active, unexpired offers: offered to this collector OR offered in their zone
-    const zoneCondition = userZoneId
+    // Find active, unexpired offers:
+    // 1. Specifically offered to this collector (currentOfferCollectorId = collectorId)
+    // 2. OR open broadcast in their zone (currentOfferCollectorId = null / unset)
+    const recipientCondition = userZoneId
         ? {
             $or: [
                 { currentOfferCollectorId: collectorId },
-                { zoneId: userZoneId },
-                { zoneId: null },
-                { zoneId: { $exists: false } },
+                {
+                    $and: [
+                        {
+                            $or: [
+                                { currentOfferCollectorId: null },
+                                { currentOfferCollectorId: { $exists: false } },
+                            ],
+                        },
+                        {
+                            $or: [
+                                { zoneId: userZoneId },
+                                { zoneId: null },
+                                { zoneId: { $exists: false } },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        : {
+            $or: [
+                { currentOfferCollectorId: collectorId },
                 { currentOfferCollectorId: null },
                 { currentOfferCollectorId: { $exists: false } },
             ],
-        }
-        : {};
+        };
     const offers = await PickupRequest_1.default.find({
         status: { $in: ['offered', 'pending'] },
-        offeredTo: { $nin: [collectorId] }, // Exclude any offers this collector has declined/passed
-        ...zoneCondition,
+        declinedBy: { $nin: [collectorId] }, // Exclude only if this collector explicitly passed on this offer
+        ...recipientCondition,
         $and: [
             {
                 $or: [

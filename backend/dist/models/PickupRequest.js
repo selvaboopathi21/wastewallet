@@ -94,6 +94,12 @@ const pickupRequestSchema = new mongoose_1.Schema({
             ref: 'User',
         },
     ],
+    declinedBy: [
+        {
+            type: mongoose_1.Schema.Types.ObjectId,
+            ref: 'User',
+        },
+    ],
     currentOfferCollectorId: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: 'User',
