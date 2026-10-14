@@ -43,8 +43,12 @@ export const CollectorBatchPage = () => {
       if (batchRes.status === 'fulfilled') {
         const list = batchRes.value?.data?.data?.batches || batchRes.value?.data?.batches || [];
         setBatches(list);
-        if (list.length > 0 && !activeBatch) {
-          setActiveBatch(list[0]);
+        if (!activeBatch) {
+          // Only automatically select a batch if it is currently in progress (deposited or received)
+          const inProgressBatch = list.find((b) => ['deposited', 'received'].includes(b.status));
+          if (inProgressBatch) {
+            setActiveBatch(inProgressBatch);
+          }
         }
       }
 
@@ -182,25 +186,46 @@ export const CollectorBatchPage = () => {
           <QrCode className="w-4 h-4" />
           {generating
             ? 'Bundling Pickups...'
-            : `Generate Today's Deposit QR (${totalCompletedWeight > 0 ? `${totalCompletedWeight.toFixed(1)} kg` : 'All Pickups'})`}
+            : `Generate Today's Deposit QR (${totalCompletedWeight > 0 ? `${completedPickups.length} Visits • ${totalCompletedWeight.toFixed(1)} kg` : 'All Pickups'})`}
         </button>
       </div>
 
       {/* Active QR Card Display */}
       {activeBatch && (
         <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-md space-y-4">
+          {activeBatch.status === 'sorted' && (
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <span className="text-2xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                📦 Archived Batch Details
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveBatch(null)}
+                className="text-2xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+              >
+                ✕ Close Details
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <span className="text-2xs font-bold uppercase tracking-wider text-slate-400">
-              Active Deposit Code
+              {activeBatch.status === 'sorted' ? 'Batch Deposit Code' : 'Active Deposit Code'}
             </span>
             <span
-              className={`text-2xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                activeBatch.status === 'received'
+              className={`text-2xs font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                activeBatch.status === 'sorted'
                   ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                  : activeBatch.status === 'received'
+                  ? 'bg-blue-100 text-blue-900 border border-blue-300'
                   : 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse'
               }`}
             >
-              {activeBatch.status === 'received' ? '✓ Received by Warehouse' : '⏳ Awaiting Store Intake'}
+              {activeBatch.status === 'sorted'
+                ? '✓ Sorted & Routed'
+                : activeBatch.status === 'received'
+                ? '✓ Received by Warehouse'
+                : '⏳ Awaiting Store Intake'}
             </span>
           </div>
 
@@ -214,6 +239,17 @@ export const CollectorBatchPage = () => {
               </p>
             </div>
           </div>
+
+          {activeBatch.status === 'deposited' && (
+            <div className="p-3 bg-amber-50/90 border border-amber-300/80 rounded-2xl text-xs space-y-1">
+              <div className="flex items-center gap-1.5 text-amber-950 font-bold">
+                <span>📲 Show This QR to Warehouse Staff</span>
+              </div>
+              <p className="text-2xs text-amber-900 leading-relaxed">
+                The warehouse staff will scan this QR at the gross intake scale to accept all your collected doorstep scrap bags.
+              </p>
+            </div>
+          )}
 
           {/* Quick Metrics */}
           <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-xs">
@@ -232,7 +268,9 @@ export const CollectorBatchPage = () => {
             <div className="p-2.5 bg-slate-50 rounded-2xl text-center">
               <p className="text-2xs text-slate-400 font-semibold uppercase">Warehouse Status</p>
               <p className="text-2xs font-bold text-slate-800 uppercase mt-1">
-                {activeBatch.status === 'received'
+                {activeBatch.status === 'sorted'
+                  ? `Sorted (${activeBatch.lossPercent ?? 0}% Loss)`
+                  : activeBatch.status === 'received'
                   ? `Recvd (${activeBatch.lossPercent ?? 0}% Loss)`
                   : 'Deposited'}
               </p>
@@ -240,7 +278,7 @@ export const CollectorBatchPage = () => {
           </div>
 
           {/* Reception Details Confirmation Banner */}
-          {activeBatch.status === 'received' && (
+          {(activeBatch.status === 'received' || activeBatch.status === 'sorted') && activeBatch.receivedWeightKg !== undefined && (
             <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-2xl text-xs space-y-1">
               <div className="flex items-center gap-1.5 text-emerald-900 font-bold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-700" />
@@ -248,7 +286,7 @@ export const CollectorBatchPage = () => {
               </div>
               <p className="text-2xs text-emerald-800">
                 Gross weight received: <strong>{activeBatch.receivedWeightKg} kg</strong> • Loss:{' '}
-                <strong>{activeBatch.lossPercent}%</strong>
+                <strong>{activeBatch.lossPercent ?? 0}%</strong>
               </p>
             </div>
           )}
@@ -351,20 +389,32 @@ export const CollectorBatchPage = () => {
       )}
 
       {/* Past Batches History */}
-      {batches.length > 1 && (
+      {batches.length > 0 && (
         <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
-          <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-            Previous Deposit Batches
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Previous Deposit Batches ({batches.length})
+            </h4>
+            <span className="text-3xs text-slate-400">Tap to inspect past batch</span>
+          </div>
           <div className="divide-y divide-slate-100 text-xs">
             {batches.map((b) => (
               <div
                 key={b._id}
                 onClick={() => setActiveBatch(b)}
-                className="py-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 px-2 rounded-xl"
+                className={`py-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 px-2.5 rounded-xl transition-all ${
+                  activeBatch?._id === b._id ? 'bg-emerald-50/70 border border-emerald-200' : ''
+                }`}
               >
                 <div>
-                  <p className="font-mono font-bold text-slate-900">{b.qrCode}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-mono font-bold text-slate-900">{b.qrCode}</p>
+                    {activeBatch?._id === b._id && (
+                      <span className="text-3xs bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full">
+                        Viewing
+                      </span>
+                    )}
+                  </div>
                   <p className="text-2xs text-slate-400">
                     {new Date(b.createdAt).toLocaleDateString('en-IN', {
                       day: 'numeric',
@@ -376,7 +426,17 @@ export const CollectorBatchPage = () => {
                   <p className="font-bold text-emerald-700">
                     {b.depositedWeightKg ?? b.totalWeightDepositedKg ?? 0} kg
                   </p>
-                  <span className="text-2xs text-slate-400 uppercase font-semibold">{b.status}</span>
+                  <span
+                    className={`text-3xs px-2 py-0.5 rounded-full uppercase font-bold ${
+                      b.status === 'sorted'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : b.status === 'received'
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}
+                  >
+                    {b.status}
+                  </span>
                 </div>
               </div>
             ))}
