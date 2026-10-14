@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUserProfile = exports.updateUserProfile = exports.loginWithPassword = exports.registerWithPassword = exports.googleAuthLogin = exports.verifyOtpAndLogin = exports.requestOtp = void 0;
+exports.resetPassword = exports.requestPasswordReset = exports.getUserProfile = exports.updateUserProfile = exports.loginWithPassword = exports.registerWithPassword = exports.googleAuthLogin = exports.verifyOtpAndLogin = exports.requestOtp = void 0;
 // Authentication Service in TypeScript
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
@@ -378,6 +378,80 @@ const getUserProfile = async (userId) => {
     return user;
 };
 exports.getUserProfile = getUserProfile;
+/**
+ * Request Password Reset: Generates OTP and sends to user's registered phone
+ */
+const requestPasswordReset = async (identifier) => {
+    if (!identifier || !identifier.trim()) {
+        throw new ApiError_1.default(400, 'Mobile number or email is required');
+    }
+    const cleanId = identifier.trim();
+    const user = await User_1.default.findOne({
+        $or: [
+            { phone: cleanId },
+            { email: cleanId.toLowerCase() },
+            { name: cleanId },
+        ],
+    });
+    if (!user) {
+        throw new ApiError_1.default(404, 'No account found with this mobile number or email.');
+    }
+    const otpResult = await otp_service_1.default.generateAndSaveOtp(user.phone);
+    return {
+        phone: user.phone,
+        name: user.name,
+        expiresAt: otpResult.expiresAt,
+        otp: otpResult.otp,
+    };
+};
+exports.requestPasswordReset = requestPasswordReset;
+/**
+ * Reset Password: Verifies OTP, updates password with bcrypt hash, and logs user in
+ */
+const resetPassword = async ({ phone, otp, newPassword, }) => {
+    if (!phone || !phone.trim()) {
+        throw new ApiError_1.default(400, 'Phone number is required');
+    }
+    if (!otp || !otp.trim()) {
+        throw new ApiError_1.default(400, 'Verification OTP code is required');
+    }
+    if (!newPassword || newPassword.length < 6) {
+        throw new ApiError_1.default(400, 'New password must be at least 6 characters long');
+    }
+    const cleanPhone = phone.trim();
+    const cleanOtp = otp.trim();
+    // Verify OTP
+    await otp_service_1.default.verifyOtp(cleanPhone, cleanOtp);
+    // Find user
+    const user = await User_1.default.findOne({ phone: cleanPhone });
+    if (!user) {
+        throw new ApiError_1.default(404, 'User account not found');
+    }
+    // Hash new password
+    const salt = await bcryptjs_1.default.genSalt(10);
+    const hashedPassword = await bcryptjs_1.default.hash(newPassword, salt);
+    user.password = hashedPassword;
+    await user.save();
+    // Issue new JWT token so user is seamlessly logged in
+    const token = jsonwebtoken_1.default.sign({ id: user._id.toString(), role: user.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
+    return {
+        token,
+        user: {
+            id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            isApproved: user.isApproved,
+            isOnline: user.isOnline,
+            rating: user.rating,
+            language: user.language,
+            address: user.address,
+            location: user.location,
+        },
+    };
+};
+exports.resetPassword = resetPassword;
 exports.default = {
     requestOtp: exports.requestOtp,
     verifyOtpAndLogin: exports.verifyOtpAndLogin,
@@ -386,4 +460,6 @@ exports.default = {
     loginWithPassword: exports.loginWithPassword,
     getUserProfile: exports.getUserProfile,
     updateUserProfile: exports.updateUserProfile,
+    requestPasswordReset: exports.requestPasswordReset,
+    resetPassword: exports.resetPassword,
 };

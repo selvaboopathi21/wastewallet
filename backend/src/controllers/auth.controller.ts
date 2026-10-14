@@ -141,6 +141,40 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+// POST /api/v1/auth/forgot-password
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  const identifier = req.body.identifier || req.body.phone || req.body.email;
+  const result = await authService.requestPasswordReset(identifier);
+
+  res.status(200).json({
+    success: true,
+    message: result.otp
+      ? `Password reset OTP generated! [Demo OTP: ${result.otp}]`
+      : 'Password reset OTP sent to your registered mobile number',
+    data: {
+      phone: result.phone,
+      name: result.name,
+      expiresAt: result.expiresAt,
+      otp: result.otp,
+    },
+  });
+});
+
+// POST /api/v1/auth/reset-password
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { phone, otp, newPassword } = req.body;
+  const result = await authService.resetPassword({ phone, otp, newPassword });
+
+  res.status(200).json({
+    success: true,
+    message: 'Password reset successfully! You are now signed in.',
+    data: {
+      token: result.token,
+      user: result.user,
+    },
+  });
+});
+
 export default {
   sendOtp,
   verifyOtp,
@@ -149,5 +183,8 @@ export default {
   login,
   getMe,
   updateProfile,
+  forgotPassword,
+  resetPassword,
 };
+
 

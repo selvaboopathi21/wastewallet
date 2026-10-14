@@ -8,6 +8,8 @@ import {
   login,
   getMe,
   updateProfile,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/auth.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
@@ -20,6 +22,8 @@ router.post('/verify-otp', verifyOtp);
 router.post('/google', googleLogin);
 router.post('/register', register);
 router.post('/login', login);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.get('/me', authenticate, getMe);
 router.patch('/profile', authenticate, updateProfile);
 

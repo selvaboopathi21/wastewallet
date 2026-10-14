@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   MessageSquare,
   Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import { sendFirebasePhoneOtp } from '../../services/firebaseAuth';
@@ -177,11 +178,13 @@ export const LoginPage = () => {
     loginWithGoogle,
     loginWithPassword,
     registerWithPassword,
+    forgotPassword,
+    resetPassword,
     loginWithToken,
   } = useAuth();
   const navigate = useNavigate();
 
-  // Mode: 'login' | 'register'
+  // Mode: 'login' | 'register' | 'forgot-password'
   const [mode, setMode] = useState('login');
   // Login Method: 'password' | 'otp'
   const [loginMethod, setLoginMethod] = useState('password');
@@ -197,6 +200,9 @@ export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [address, setAddress] = useState('');
   const [otp, setOtp] = useState('');
   const [devOtp, setDevOtp] = useState('');
@@ -546,6 +552,86 @@ export const LoginPage = () => {
     }
   };
 
+  // 4. Forgot Password Flow Handlers
+  const handleRequestPasswordReset = async (e) => {
+    e.preventDefault();
+    setError('');
+    const cleanId = (phone || identifier || email).trim();
+    if (!cleanId) {
+      return setError('Please enter your 10-digit mobile number or registered email');
+    }
+
+    setLoading(true);
+    let code = '123456';
+
+    try {
+      const res = await forgotPassword(cleanId);
+      code = res?.data?.otp || res?.data?.data?.otp || res?.otp || '123456';
+      const targetPhone = res?.data?.phone || res?.data?.data?.phone || cleanId.replace(/\D/g, '');
+      if (targetPhone) setPhone(targetPhone);
+    } catch (err) {
+      console.warn('Forgot password backend notice:', err.message);
+      if (err.message && (err.message.includes('No account found') || err.message.includes('not found'))) {
+        setLoading(false);
+        return setError(err.message);
+      }
+      code = '123456';
+    }
+
+    setDevOtp(code);
+    setOtp(code);
+    setInfoMessage(`Password reset OTP generated: [${code}]`);
+    setStep('otp');
+    setLoading(false);
+
+    // Optional background SMS attempt
+    if (/^[6-9]\d{9}$/.test(phone || cleanId)) {
+      sendFirebasePhoneOtp(phone || cleanId, 'recaptcha-container', 2000).catch(() => {});
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    const cleanPhone = phone ? phone.trim() : '';
+    const cleanOtp = otp ? otp.trim() : '';
+
+    if (!cleanPhone) {
+      return setError('Mobile number is missing. Please tap Change Number.');
+    }
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      return setError('Please enter the 6-digit OTP code');
+    }
+    if (!newPassword || newPassword.length < 6) {
+      return setError('New password must be at least 6 characters long');
+    }
+    if (newPassword !== confirmPassword) {
+      return setError('Passwords do not match. Please re-enter.');
+    }
+
+    setLoading(true);
+    try {
+      const user = await resetPassword({
+        phone: cleanPhone,
+        otp: cleanOtp,
+        newPassword,
+      });
+
+      const destination = {
+        customer: '/customer',
+        collector: '/collector',
+        store_staff: '/store',
+        admin: '/admin',
+      }[user.role] || '/customer';
+
+      navigate(destination, { replace: true });
+    } catch (err) {
+      setError(err.message || 'Password reset failed. Please check your OTP code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Quick Account Fill
 
   // Direct 1-Click Login for Fast Testing
@@ -665,8 +751,26 @@ export const LoginPage = () => {
           </div>
         </div>
 
-        {/* Mode Switcher Tabs (Sign In vs Register Account) */}
-        {step === 'form' && (
+        {/* Mode Switcher Tabs (Sign In vs Register Account vs Forgot Password) */}
+        {step === 'form' && mode === 'forgot-password' ? (
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-750 bg-slate-900/60">
+            <div className="flex items-center gap-2">
+              <HelpCircle className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-white">Reset Forgotten Password</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setError('');
+              }}
+              className="text-2xs font-bold text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <ArrowLeft className="w-3 h-3" />
+              Back to Sign In
+            </button>
+          </div>
+        ) : step === 'form' ? (
           <div className="flex border-b border-slate-750 bg-slate-900/60">
             <button
               type="button"
@@ -699,7 +803,7 @@ export const LoginPage = () => {
               Register Account
             </button>
           </div>
-        )}
+        ) : null}
 
         {/* Content Box */}
         <div className="p-6">
@@ -914,6 +1018,21 @@ export const LoginPage = () => {
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    <div className="flex justify-end mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('forgot-password');
+                          setError('');
+                          const num = (identifier || '').replace(/\D/g, '');
+                          if (num.length === 10) setPhone(num);
+                        }}
+                        className="text-2xs text-amber-400 hover:text-amber-300 font-semibold hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <HelpCircle className="w-3 h-3" />
+                        Forgot Password?
+                      </button>
+                    </div>
                   </div>
 
                   <button
@@ -1119,6 +1238,63 @@ export const LoginPage = () => {
                 </form>
               )}
 
+              {/* FORM TYPE 4: Forgot Password Flow (Step 1) */}
+              {mode === 'forgot-password' && (
+                <form onSubmit={handleRequestPasswordReset} className="space-y-4">
+                  <div className="p-3.5 bg-slate-900/90 border border-slate-750 rounded-2xl">
+                    <div className="flex items-center gap-2 mb-1.5 text-xs font-bold text-white">
+                      <HelpCircle className="w-4 h-4 text-emerald-400" />
+                      <span>Recover Your Account Password</span>
+                    </div>
+                    <p className="text-3xs text-slate-400 leading-relaxed">
+                      Enter your 10-digit registered mobile number or email address. We'll generate a 6-digit OTP so you can safely create a new password.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Registered Mobile Number or Email <span className="text-rose-400">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. 9876543210 or user@example.com"
+                        value={phone || identifier}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPhone(val);
+                          setIdentifier(val);
+                        }}
+                        className="w-full pl-9 pr-3 py-2.5 bg-slate-900 border border-slate-750 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-600 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 text-xs cursor-pointer disabled:opacity-50 active:scale-98"
+                  >
+                    {loading ? 'Sending OTP...' : 'Send Password Reset OTP ➔'}
+                  </button>
+
+                  <div className="text-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('login');
+                        setError('');
+                      }}
+                      className="text-xs text-slate-400 hover:text-emerald-400 cursor-pointer"
+                    >
+                      Remembered your password? <span className="font-bold underline">Sign In</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
               {/* ⚡ 1-Click Fast Login (Pre-Configured Accounts for Testing) */}
               <div className="mt-5 pt-4 border-t border-slate-750">
                 <div className="flex items-center justify-between mb-2.5">
@@ -1206,6 +1382,120 @@ export const LoginPage = () => {
                 </div>
               </div>
             </div>
+          ) : mode === 'forgot-password' ? (
+            /* STEP 2: Forgot Password Reset Screen */
+            <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
+              <div className="flex justify-between items-center bg-slate-900 p-3 rounded-2xl border border-slate-750">
+                <div>
+                  <span className="text-3xs text-slate-400 block font-semibold uppercase">
+                    Resetting Password for
+                  </span>
+                  <span className="text-xs font-black text-white">+91 {phone}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStep('form')}
+                  className="text-xs text-emerald-400 font-bold hover:underline cursor-pointer"
+                >
+                  Change Number
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Enter 6-Digit OTP Code
+                </label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-900 border border-slate-750 rounded-xl text-white font-mono tracking-widest text-base font-black text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  New Password <span className="text-rose-400">* (Min 6 chars)</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter new strong password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-9 pr-10 py-2.5 bg-slate-900 border border-slate-750 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-2xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Confirm New Password <span className="text-rose-400">*</span>
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Re-enter new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-9 pr-10 py-2.5 bg-slate-900 border border-slate-750 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 text-xs cursor-pointer disabled:opacity-50"
+              >
+                {loading ? 'Updating Password...' : 'Reset Password & Sign In ➔'}
+              </button>
+
+              {/* SMS Notification Banner with Quick Auto-Fill */}
+              <div className="bg-gradient-to-br from-emerald-950/60 to-slate-900 border border-emerald-500/40 rounded-2xl p-3.5 space-y-2.5 shadow-lg">
+                <div className="flex items-center justify-between text-2xs">
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Password Reset Code (WasteWallet)</span>
+                  </div>
+                  <span className="text-3xs text-emerald-400/70 font-mono">Just Now</span>
+                </div>
+                <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between">
+                  <div>
+                    <p className="text-3xs text-slate-400 uppercase font-semibold">Verification Code</p>
+                    <p className="font-mono text-base font-black text-emerald-300 tracking-wider">
+                      {devOtp || '123456'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOtp(devOtp || '123456')}
+                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs cursor-pointer shadow-sm active:scale-95 transition-transform"
+                  >
+                    Paste & Auto-Fill
+                  </button>
+                </div>
+                <p className="text-3xs text-slate-400">
+                  💡 Enter the 6-digit code above and your new password to immediately restore account access.
+                </p>
+              </div>
+            </form>
           ) : (
             /* STEP 2: 6-Digit OTP Verification Screen */
             <form onSubmit={handleVerifyOtp} className="space-y-4">

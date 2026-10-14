@@ -250,6 +250,30 @@ export const AuthProvider = ({ children }) => {
     return userObj;
   };
 
+  // Step 5: Forgot Password - Request Reset OTP
+  const forgotPassword = async (identifier) => {
+    const res = await api.post('/auth/forgot-password', { identifier });
+    return res;
+  };
+
+  // Step 6: Reset Password - Verify OTP & Set New Password
+  const resetPassword = async ({ phone, otp, newPassword }) => {
+    const res = await api.post('/auth/reset-password', { phone, otp, newPassword });
+    const payload = res?.data?.data || res?.data;
+    if (payload?.token && payload?.user) {
+      const newToken = payload.token;
+      const newUser = payload.user;
+
+      localStorage.setItem('token', newToken);
+      localStorage.setItem('user', JSON.stringify(newUser));
+
+      setToken(newToken);
+      setUser(newUser);
+      return newUser;
+    }
+    return payload;
+  };
+
   const value = {
     user,
     token,
@@ -260,6 +284,8 @@ export const AuthProvider = ({ children }) => {
     loginWithGoogle,
     loginWithPassword,
     registerWithPassword,
+    forgotPassword,
+    resetPassword,
     updateProfile,
     loginWithToken,
     logout,

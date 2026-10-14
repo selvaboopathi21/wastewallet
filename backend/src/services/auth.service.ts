@@ -494,6 +494,103 @@ export const getUserProfile = async (userId: string): Promise<IUser> => {
   return user;
 };
 
+/**
+ * Request Password Reset: Generates OTP and sends to user's registered phone
+ */
+export const requestPasswordReset = async (identifier: string) => {
+  if (!identifier || !identifier.trim()) {
+    throw new ApiError(400, 'Mobile number or email is required');
+  }
+
+  const cleanId = identifier.trim();
+  const user = await User.findOne({
+    $or: [
+      { phone: cleanId },
+      { email: cleanId.toLowerCase() },
+      { name: cleanId },
+    ],
+  });
+
+  if (!user) {
+    throw new ApiError(404, 'No account found with this mobile number or email.');
+  }
+
+  const otpResult = await otpService.generateAndSaveOtp(user.phone);
+
+  return {
+    phone: user.phone,
+    name: user.name,
+    expiresAt: otpResult.expiresAt,
+    otp: otpResult.otp,
+  };
+};
+
+/**
+ * Reset Password: Verifies OTP, updates password with bcrypt hash, and logs user in
+ */
+export const resetPassword = async ({
+  phone,
+  otp,
+  newPassword,
+}: {
+  phone: string;
+  otp: string;
+  newPassword: string;
+}) => {
+  if (!phone || !phone.trim()) {
+    throw new ApiError(400, 'Phone number is required');
+  }
+  if (!otp || !otp.trim()) {
+    throw new ApiError(400, 'Verification OTP code is required');
+  }
+  if (!newPassword || newPassword.length < 6) {
+    throw new ApiError(400, 'New password must be at least 6 characters long');
+  }
+
+  const cleanPhone = phone.trim();
+  const cleanOtp = otp.trim();
+
+  // Verify OTP
+  await otpService.verifyOtp(cleanPhone, cleanOtp);
+
+  // Find user
+  const user = await User.findOne({ phone: cleanPhone });
+  if (!user) {
+    throw new ApiError(404, 'User account not found');
+  }
+
+  // Hash new password
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+  user.password = hashedPassword;
+  await user.save();
+
+  // Issue new JWT token so user is seamlessly logged in
+  const token = jwt.sign(
+    { id: user._id.toString(), role: user.role },
+    env.jwtSecret,
+    { expiresIn: '30d' }
+  );
+
+  return {
+    token,
+    user: {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isApproved: user.isApproved,
+      isOnline: user.isOnline,
+      rating: user.rating,
+      language: user.language,
+      address: user.address,
+      location: user.location,
+    },
+  };
+};
+
 export default {
   requestOtp,
   verifyOtpAndLogin,
@@ -502,4 +599,6 @@ export default {
   loginWithPassword,
   getUserProfile,
   updateUserProfile,
+  requestPasswordReset,
+  resetPassword,
 };

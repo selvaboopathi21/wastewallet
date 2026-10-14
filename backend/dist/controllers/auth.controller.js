@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.login = exports.register = exports.updateProfile = exports.getMe = exports.googleLogin = exports.verifyOtp = exports.sendOtp = void 0;
+exports.resetPassword = exports.forgotPassword = exports.login = exports.register = exports.updateProfile = exports.getMe = exports.googleLogin = exports.verifyOtp = exports.sendOtp = void 0;
 const auth_service_1 = __importDefault(require("../services/auth.service"));
 const asyncHandler_1 = __importDefault(require("../utils/asyncHandler"));
 // POST /api/v1/auth/send-otp
@@ -130,6 +130,36 @@ exports.login = (0, asyncHandler_1.default)(async (req, res) => {
         },
     });
 });
+// POST /api/v1/auth/forgot-password
+exports.forgotPassword = (0, asyncHandler_1.default)(async (req, res) => {
+    const identifier = req.body.identifier || req.body.phone || req.body.email;
+    const result = await auth_service_1.default.requestPasswordReset(identifier);
+    res.status(200).json({
+        success: true,
+        message: result.otp
+            ? `Password reset OTP generated! [Demo OTP: ${result.otp}]`
+            : 'Password reset OTP sent to your registered mobile number',
+        data: {
+            phone: result.phone,
+            name: result.name,
+            expiresAt: result.expiresAt,
+            otp: result.otp,
+        },
+    });
+});
+// POST /api/v1/auth/reset-password
+exports.resetPassword = (0, asyncHandler_1.default)(async (req, res) => {
+    const { phone, otp, newPassword } = req.body;
+    const result = await auth_service_1.default.resetPassword({ phone, otp, newPassword });
+    res.status(200).json({
+        success: true,
+        message: 'Password reset successfully! You are now signed in.',
+        data: {
+            token: result.token,
+            user: result.user,
+        },
+    });
+});
 exports.default = {
     sendOtp: exports.sendOtp,
     verifyOtp: exports.verifyOtp,
@@ -138,4 +168,6 @@ exports.default = {
     login: exports.login,
     getMe: exports.getMe,
     updateProfile: exports.updateProfile,
+    forgotPassword: exports.forgotPassword,
+    resetPassword: exports.resetPassword,
 };
