@@ -82,6 +82,13 @@ export const CollectorHome = () => {
 
   // Fetch incoming offers & active jobs
   const fetchCollectorData = async () => {
+    if (!isApproved) {
+      setOffers([]);
+      setActiveJobs([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const [offersRes, jobsRes] = await Promise.all([
         api.get('/collector/offers'),
@@ -118,16 +125,21 @@ export const CollectorHome = () => {
 
   useEffect(() => {
     fetchCollectorData();
-    // Poll offers every 1.5 seconds for lightning fast discovery
-    const interval = setInterval(fetchCollectorData, 1500);
+    // Poll offers every 1.5 seconds for lightning fast discovery if approved
+    const interval = setInterval(() => {
+      if (isApproved) {
+        fetchCollectorData();
+      }
+    }, 1500);
     return () => clearInterval(interval);
-  }, []);
+  }, [isApproved]);
 
   // Listen for socket events
   useEffect(() => {
     if (!socket) return;
 
     const handlePickupOffered = (eventData) => {
+      if (!isApproved) return;
       if (eventData?.pickup && !declinedOfferIds.includes(eventData.pickup._id)) {
         setOffers((prev) => {
           const exists = prev.some((o) => o._id === eventData.pickup._id);
@@ -137,7 +149,6 @@ export const CollectorHome = () => {
           return [eventData.pickup, ...prev];
         });
       }
-      // Give MongoDB a brief moment to finish indexing before refreshing
       setTimeout(fetchCollectorData, 500);
     };
 
@@ -179,6 +190,10 @@ export const CollectorHome = () => {
 
   // Accept incoming offer
   const handleAcceptOffer = async (pickupId) => {
+    if (!isApproved) {
+      alert('Your partner account is pending Admin approval. You cannot accept scrap jobs until verified.');
+      return;
+    }
     setRespondingOfferId(pickupId);
     try {
       await api.post(`/collector/pickups/${pickupId}/accept`);
@@ -369,7 +384,7 @@ export const CollectorHome = () => {
       </div>
 
       {/* 60-Second Incoming Offer Modal / Card */}
-      {offers.length > 0 && (
+      {isApproved && isOnline && offers.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-black text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
@@ -434,12 +449,22 @@ export const CollectorHome = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
             <Clock className="w-4 h-4 text-emerald-600" />
-            Active Collection Route ({activeJobs.length})
+            Active Collection Route ({isApproved ? activeJobs.length : 0})
           </h3>
           <span className="text-2xs font-semibold text-slate-400">Doorstep Visits</span>
         </div>
 
-        {activeJobs.length === 0 ? (
+        {!isApproved ? (
+          <div className="py-8 text-center space-y-3">
+            <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-black text-amber-950">Pickup Requests Locked</h4>
+            <p className="text-xs text-amber-800/80 max-w-xs mx-auto leading-relaxed">
+              Your partner account is pending Master Admin review. Once approved from Admin Ops (/admin), you will receive scrap collection jobs here.
+            </p>
+          </div>
+        ) : activeJobs.length === 0 ? (
           <div className="py-8 text-center space-y-2">
             <div className="w-10 h-10 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
               <Truck className="w-5 h-5" />

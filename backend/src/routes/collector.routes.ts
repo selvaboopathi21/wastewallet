@@ -16,11 +16,25 @@ import {
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
 import { ROLES } from '../utils/constants';
+import ApiError from '../utils/ApiError';
 
 const router = Router();
 
-// All collector routes require authentication
-router.use(authenticate, restrictTo(ROLES.COLLECTOR, ROLES.ADMIN, ROLES.CUSTOMER));
+// Middleware: Collectors MUST be approved by Admin before accessing operational endpoints
+const requireApprovedCollector = (req: any, res: any, next: any) => {
+  if (req.user?.role === ROLES.COLLECTOR && !req.user?.isApproved) {
+    return next(
+      new ApiError(
+        403,
+        'Your collector partner account is awaiting verification by Admin. You cannot accept requests or view job cards until approved.'
+      )
+    );
+  }
+  next();
+};
+
+// All collector routes require authentication and approval
+router.use(authenticate, restrictTo(ROLES.COLLECTOR, ROLES.ADMIN, ROLES.CUSTOMER), requireApprovedCollector);
 
 // Online / Offline toggle
 router.patch('/status', toggleOnlineStatus);

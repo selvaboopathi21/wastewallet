@@ -9,9 +9,17 @@ const collector_controller_1 = require("../controllers/collector.controller");
 const auth_1 = __importDefault(require("../middleware/auth"));
 const role_1 = require("../middleware/role");
 const constants_1 = require("../utils/constants");
+const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const router = (0, express_1.Router)();
-// All collector routes require authentication
-router.use(auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLECTOR, constants_1.ROLES.ADMIN, constants_1.ROLES.CUSTOMER));
+// Middleware: Collectors MUST be approved by Admin before accessing operational endpoints
+const requireApprovedCollector = (req, res, next) => {
+    if (req.user?.role === constants_1.ROLES.COLLECTOR && !req.user?.isApproved) {
+        return next(new ApiError_1.default(403, 'Your collector partner account is awaiting verification by Admin. You cannot accept requests or view job cards until approved.'));
+    }
+    next();
+};
+// All collector routes require authentication and approval
+router.use(auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLECTOR, constants_1.ROLES.ADMIN, constants_1.ROLES.CUSTOMER), requireApprovedCollector);
 // Online / Offline toggle
 router.patch('/status', collector_controller_1.toggleOnlineStatus);
 // View pending 60-second offers

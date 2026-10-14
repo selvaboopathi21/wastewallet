@@ -162,6 +162,10 @@ exports.declinePickupOffer = (0, asyncHandler_1.default)(async (req, res) => {
 // PATCH /api/v1/collector/pickups/:id/status (Transition status e.g. on_the_way, arrived)
 exports.updatePickupStatus = (0, asyncHandler_1.default)(async (req, res) => {
     const collectorId = req.user._id.toString();
+    const isApproved = req.user.isApproved;
+    if (!isApproved) {
+        throw new ApiError_1.default(403, 'Your account is pending review by Admin. You cannot execute pickups until verified.');
+    }
     const { id } = req.params;
     const { status } = req.body;
     if (!status) {
@@ -177,6 +181,18 @@ exports.updatePickupStatus = (0, asyncHandler_1.default)(async (req, res) => {
 // GET /api/v1/collector/active-jobs
 exports.getActiveJobs = (0, asyncHandler_1.default)(async (req, res) => {
     const collectorId = req.user._id;
+    const isApproved = req.user.isApproved;
+    if (!isApproved) {
+        return res.status(200).json({
+            success: true,
+            message: 'Pending Admin verification. No active jobs.',
+            data: {
+                activeJobs: [],
+                completedJobs: [],
+                stats: { completedToday: 0, totalWeightKg: 0, totalCashPaid: 0 },
+            },
+        });
+    }
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const [activeJobs, completedTodayJobs] = await Promise.all([

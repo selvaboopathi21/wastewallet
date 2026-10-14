@@ -33,7 +33,19 @@ export const ProtectedRoute = ({ allowedRoles = [] }) => {
     return <Navigate to={`/login${roleParam}`} replace />;
   }
 
-  // 2. If specific roles are required, ensure user has permission
+  // 2. If collector is not yet approved by Admin, restrict to dashboard overview only
+  if (user.role === 'collector' && !user.isApproved) {
+    const path = window.location.pathname;
+    if (
+      path.startsWith('/collector/pickups') ||
+      path.startsWith('/collector/batch') ||
+      path.startsWith('/collector/batches')
+    ) {
+      return <Navigate to="/collector" replace />;
+    }
+  }
+
+  // 3. If specific roles are required, ensure user has permission
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     // Redirect user to their own role's home view
     const roleRoutes = {
