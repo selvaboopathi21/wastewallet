@@ -127,13 +127,17 @@ export const emitPickupConfirmed = (pickupId: string, collectorId: string, data:
 };
 
 /**
- * 7. Emits pickup offer to assigned collector and all active collectors
+ * 7. Emits pickup offer to assigned collector or broadcasts to all active collectors
  */
 export const emitPickupOffered = (collectorId: string, data: any) => {
   if (!io) return;
-  io.to(`user:${collectorId}`).emit('pickup.offered', data);
-  io.emit('pickup.offered', data);
-  logger.info(`📡 Emitted "pickup.offered" to collector ${collectorId}`);
+  if (!collectorId || collectorId === 'all') {
+    io.emit('pickup.offered', data);
+    logger.info(`📡 Broadcast "pickup.offered" to all online collectors in zone`);
+  } else {
+    io.to(`user:${collectorId}`).emit('pickup.offered', data);
+    logger.info(`📡 Targeted "pickup.offered" exclusively to collector ${collectorId}`);
+  }
 };
 
 /**

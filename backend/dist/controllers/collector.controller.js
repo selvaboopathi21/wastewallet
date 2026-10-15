@@ -99,6 +99,7 @@ exports.getMyOffers = (0, asyncHandler_1.default)(async (req, res) => {
                                 { zoneId: userZoneId },
                                 { zoneId: null },
                                 { zoneId: { $exists: false } },
+                                { noCollectorsAvailable: true },
                             ],
                         },
                     ],

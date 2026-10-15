@@ -76,6 +76,7 @@ export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
                   { zoneId: userZoneId },
                   { zoneId: null },
                   { zoneId: { $exists: false } },
+                  { noCollectorsAvailable: true },
                 ],
               },
             ],

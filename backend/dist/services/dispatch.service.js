@@ -181,21 +181,26 @@ const dispatchPickupRequest = async (pickupId) => {
     }));
     // Sort descending (highest score first)
     scoredCollectors.sort((a, b) => b.score - a.score);
-    const bestCandidate = scoredCollectors[0].collector;
-    // Set 20-second offer timeout so collectors have a fast active window, minimizing customer waiting time
-    const offerExpiresAt = new Date(Date.now() + 20 * 1000);
+    // Keep offer active as open broadcast in zone so ALL online collectors in the zone can see and accept it immediately
+    // without artificial 20-second lockout delays or flickering popups
+    const offerExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30-minute active window
     pickup.status = 'offered';
-    pickup.currentOfferCollectorId = bestCandidate._id;
+    pickup.currentOfferCollectorId = null; // Open to all active, approved collectors in zone
     pickup.offerExpiresAt = offerExpiresAt;
     pickup.noCollectorsAvailable = false;
-    pickup.offeredTo.push(bestCandidate._id);
+    // Track all currently eligible collectors
+    eligibleCollectors.forEach((c) => {
+        if (!pickup.offeredTo.some((id) => id.toString() === c._id.toString())) {
+            pickup.offeredTo.push(c._id);
+        }
+    });
     await pickup.save();
-    logger_1.default.info(`📢 Offered pickup ${pickup._id} to Collector "${bestCandidate.name || bestCandidate.phone}" (20s response timer)`);
+    logger_1.default.info(`📢 Offered pickup ${pickup._id} as live broadcast to ${eligibleCollectors.length} online collector(s) in zone`);
     try {
         const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
         await pickup.populate('customerId', 'name phone address');
         await pickup.populate('zoneId', 'name');
-        sockets.emitPickupOffered(bestCandidate._id.toString(), {
+        sockets.emitPickupOffered('all', {
             pickupId: pickup._id.toString(),
             pickup,
         });

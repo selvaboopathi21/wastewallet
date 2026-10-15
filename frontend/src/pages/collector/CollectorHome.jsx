@@ -126,7 +126,19 @@ export const CollectorHome = () => {
       const rawOffers = offersRes?.data?.offers || offersRes?.offers || [];
       // Filter out any offers that the collector has passed on
       const validOffers = rawOffers.filter((o) => o?._id && !declinedOfferIds.includes(o._id));
-      setOffers(validOffers);
+
+      setOffers((prev) => {
+        const serverIds = new Set(validOffers.map((o) => o._id));
+        // Keep active unexpired socket offers so the UI never flickers or disappears
+        const unexpiredSocketOffers = prev.filter(
+          (o) =>
+            !declinedOfferIds.includes(o._id) &&
+            !serverIds.has(o._id) &&
+            (!o.offerExpiresAt || new Date(o.offerExpiresAt) > new Date())
+        );
+        return [...validOffers, ...unexpiredSocketOffers];
+      });
+
       const jobs = jobsRes?.data?.activeJobs || jobsRes?.activeJobs || [];
       setActiveJobs(jobs);
 
@@ -169,6 +181,15 @@ export const CollectorHome = () => {
     const handlePickupOffered = (eventData) => {
       if (!isApproved) return;
       if (eventData?.pickup && !declinedOfferIds.includes(eventData.pickup._id)) {
+        // Guard: If this offer was specifically targeted to a different collector, ignore it
+        const targetCollector =
+          eventData.pickup.currentOfferCollectorId?._id ||
+          eventData.pickup.currentOfferCollectorId;
+        const myId = user?._id || user?.id;
+        if (targetCollector && myId && String(targetCollector) !== String(myId)) {
+          return;
+        }
+
         setOffers((prev) => {
           const exists = prev.some((o) => o._id === eventData.pickup._id);
           if (exists) {
