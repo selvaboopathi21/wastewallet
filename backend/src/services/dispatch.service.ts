@@ -274,11 +274,8 @@ export const declinePickup = async (
 ): Promise<IPickupRequest | null> => {
   const collectorObjId = new Types.ObjectId(collectorId);
 
-  // Find active pickup request that is offered or pending
-  const pickup = await PickupRequest.findOne({
-    _id: pickupId,
-    status: { $in: ['offered', 'pending'] },
-  });
+  // Find pickup request by ID
+  const pickup = await PickupRequest.findById(pickupId);
 
   if (!pickup) {
     throw new ApiError(404, 'No active pickup offer found for this ID');
@@ -293,6 +290,9 @@ export const declinePickup = async (
   }
 
   // Add collector to offeredTo so dispatch algorithm moves to other candidates
+  if (!pickup.offeredTo) {
+    pickup.offeredTo = [];
+  }
   if (!pickup.offeredTo.some((id) => id.toString() === collectorId)) {
     pickup.offeredTo.push(collectorObjId);
   }

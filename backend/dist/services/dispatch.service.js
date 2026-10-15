@@ -259,11 +259,8 @@ exports.atomicAcceptPickup = atomicAcceptPickup;
  */
 const declinePickup = async (pickupId, collectorId) => {
     const collectorObjId = new mongoose_1.Types.ObjectId(collectorId);
-    // Find active pickup request that is offered or pending
-    const pickup = await PickupRequest_1.default.findOne({
-        _id: pickupId,
-        status: { $in: ['offered', 'pending'] },
-    });
+    // Find pickup request by ID
+    const pickup = await PickupRequest_1.default.findById(pickupId);
     if (!pickup) {
         throw new ApiError_1.default(404, 'No active pickup offer found for this ID');
     }
@@ -275,6 +272,9 @@ const declinePickup = async (pickupId, collectorId) => {
         pickup.declinedBy.push(collectorObjId);
     }
     // Add collector to offeredTo so dispatch algorithm moves to other candidates
+    if (!pickup.offeredTo) {
+        pickup.offeredTo = [];
+    }
     if (!pickup.offeredTo.some((id) => id.toString() === collectorId)) {
         pickup.offeredTo.push(collectorObjId);
     }

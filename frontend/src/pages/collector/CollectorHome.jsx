@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Truck,
@@ -39,16 +39,20 @@ export const CollectorHome = () => {
     totalCashPaid: 0,
   });
 
-  const [declinedOfferIds, setDeclinedOfferIds] = useState(() => {
+  const getSavedDeclinedIds = () => {
     try {
       const saved = sessionStorage.getItem('ww_declined_offers');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
-  });
+  };
+
+  const [declinedOfferIds, setDeclinedOfferIds] = useState(getSavedDeclinedIds);
+  const declinedOfferIdsRef = useRef(new Set(getSavedDeclinedIds()));
 
   const recordDeclinedOfferId = (id) => {
+    declinedOfferIdsRef.current.add(id);
     setDeclinedOfferIds((prev) => {
       const updated = Array.from(new Set([...prev, id]));
       try {
@@ -124,15 +128,16 @@ export const CollectorHome = () => {
       ]);
 
       const rawOffers = offersRes?.data?.offers || offersRes?.offers || [];
-      // Filter out any offers that the collector has passed on
-      const validOffers = rawOffers.filter((o) => o?._id && !declinedOfferIds.includes(o._id));
+      // Filter out any offers that the collector has passed on using ref + storage
+      const declinedSet = declinedOfferIdsRef.current;
+      const validOffers = rawOffers.filter((o) => o?._id && !declinedSet.has(o._id));
 
       setOffers((prev) => {
         const serverIds = new Set(validOffers.map((o) => o._id));
         // Keep active unexpired socket offers so the UI never flickers or disappears
         const unexpiredSocketOffers = prev.filter(
           (o) =>
-            !declinedOfferIds.includes(o._id) &&
+            !declinedSet.has(o._id) &&
             !serverIds.has(o._id) &&
             (!o.offerExpiresAt || new Date(o.offerExpiresAt) > new Date())
         );
@@ -180,24 +185,29 @@ export const CollectorHome = () => {
 
     const handlePickupOffered = (eventData) => {
       if (!isApproved) return;
-      if (eventData?.pickup && !declinedOfferIds.includes(eventData.pickup._id)) {
-        // Guard: If this offer was specifically targeted to a different collector, ignore it
-        const targetCollector =
-          eventData.pickup.currentOfferCollectorId?._id ||
-          eventData.pickup.currentOfferCollectorId;
-        const myId = user?._id || user?.id;
-        if (targetCollector && myId && String(targetCollector) !== String(myId)) {
-          return;
-        }
+      const pickup = eventData?.pickup;
+      if (!pickup?._id) return;
 
-        setOffers((prev) => {
-          const exists = prev.some((o) => o._id === eventData.pickup._id);
-          if (exists) {
-            return prev.map((o) => (o._id === eventData.pickup._id ? { ...o, ...eventData.pickup } : o));
-          }
-          return [eventData.pickup, ...prev];
-        });
+      // If collector passed on this offer, strictly ignore it
+      if (declinedOfferIdsRef.current.has(pickup._id)) return;
+
+      // Guard: If this offer was specifically targeted to a different collector, ignore it
+      const targetCollector =
+        pickup.currentOfferCollectorId?._id ||
+        pickup.currentOfferCollectorId;
+      const myId = user?._id || user?.id;
+      if (targetCollector && myId && String(targetCollector) !== String(myId)) {
+        return;
       }
+
+      setOffers((prev) => {
+        if (declinedOfferIdsRef.current.has(pickup._id)) return prev;
+        const exists = prev.some((o) => o._id === pickup._id);
+        if (exists) {
+          return prev.map((o) => (o._id === pickup._id ? { ...o, ...pickup } : o));
+        }
+        return [pickup, ...prev];
+      });
       setTimeout(fetchCollectorData, 500);
     };
 
@@ -493,11 +503,12 @@ export const CollectorHome = () => {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => handleDeclineOffer(offer._id)}
                   disabled={respondingOfferId === offer._id}
-                  className="px-4 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
+                  className="px-4 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs cursor-pointer transition-colors active:scale-95 disabled:opacity-50"
                 >
-                  Pass
+                  {respondingOfferId === offer._id ? 'Passing...' : 'Pass'}
                 </button>
               </div>
             </div>

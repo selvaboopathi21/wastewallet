@@ -1,5 +1,6 @@
 // Collector Controller: HTTP endpoints for scrap collectors
 import { Request, Response } from 'express';
+import { Types } from 'mongoose';
 import dispatchService from '../services/dispatch.service';
 import PickupRequest from '../models/PickupRequest';
 import User from '../models/User';
@@ -91,9 +92,16 @@ export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
         ],
       };
 
-  const offers = await PickupRequest.find({
+  const collectorObjId = Types.ObjectId.isValid(collectorId)
+    ? new Types.ObjectId(collectorId)
+    : null;
+
+  const declinedExclusions: any[] = [collectorId];
+  if (collectorObjId) declinedExclusions.push(collectorObjId);
+
+  const rawOffers = await PickupRequest.find({
     status: { $in: ['offered', 'pending'] },
-    declinedBy: { $nin: [collectorId] }, // Exclude only if this collector explicitly passed on this offer
+    declinedBy: { $nin: declinedExclusions }, // Exclude if this collector explicitly passed on this offer
     ...recipientCondition,
     $and: [
       {
@@ -107,6 +115,14 @@ export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
     .populate('customerId', 'name phone address')
     .populate('zoneId', 'name')
     .sort({ createdAt: -1 });
+
+  // In-memory filter as bulletproof safety to ensure NO declined pickups are ever returned to this collector
+  const offers = rawOffers.filter((p) => {
+    if (!p.declinedBy || !Array.isArray(p.declinedBy)) return true;
+    return !p.declinedBy.some(
+      (d: any) => (d?._id ? d._id.toString() : d.toString()) === collectorId
+    );
+  });
 
   res.status(200).json({
     success: true,

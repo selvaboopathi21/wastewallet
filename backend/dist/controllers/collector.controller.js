@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activateCollector = exports.respondSeparatePrice = exports.finishPickup = exports.recordCashPayment = exports.requestConfirmationOtp = exports.recordWeights = exports.getActiveJobs = exports.updatePickupStatus = exports.declinePickupOffer = exports.acceptPickupOffer = exports.getMyOffers = exports.toggleOnlineStatus = void 0;
+const mongoose_1 = require("mongoose");
 const dispatch_service_1 = __importDefault(require("../services/dispatch.service"));
 const PickupRequest_1 = __importDefault(require("../models/PickupRequest"));
 const User_1 = __importDefault(require("../models/User"));
@@ -113,9 +114,15 @@ exports.getMyOffers = (0, asyncHandler_1.default)(async (req, res) => {
                 { currentOfferCollectorId: { $exists: false } },
             ],
         };
-    const offers = await PickupRequest_1.default.find({
+    const collectorObjId = mongoose_1.Types.ObjectId.isValid(collectorId)
+        ? new mongoose_1.Types.ObjectId(collectorId)
+        : null;
+    const declinedExclusions = [collectorId];
+    if (collectorObjId)
+        declinedExclusions.push(collectorObjId);
+    const rawOffers = await PickupRequest_1.default.find({
         status: { $in: ['offered', 'pending'] },
-        declinedBy: { $nin: [collectorId] }, // Exclude only if this collector explicitly passed on this offer
+        declinedBy: { $nin: declinedExclusions }, // Exclude if this collector explicitly passed on this offer
         ...recipientCondition,
         $and: [
             {
@@ -129,6 +136,12 @@ exports.getMyOffers = (0, asyncHandler_1.default)(async (req, res) => {
         .populate('customerId', 'name phone address')
         .populate('zoneId', 'name')
         .sort({ createdAt: -1 });
+    // In-memory filter as bulletproof safety to ensure NO declined pickups are ever returned to this collector
+    const offers = rawOffers.filter((p) => {
+        if (!p.declinedBy || !Array.isArray(p.declinedBy))
+            return true;
+        return !p.declinedBy.some((d) => (d?._id ? d._id.toString() : d.toString()) === collectorId);
+    });
     res.status(200).json({
         success: true,
         message: 'Pending offers retrieved successfully',
