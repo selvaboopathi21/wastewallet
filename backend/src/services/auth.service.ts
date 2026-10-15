@@ -83,18 +83,18 @@ export const verifyOtpAndLogin = async ({
       if (activeZone) defaultZoneId = activeZone._id;
     }
 
-    // Customer is approved automatically; New collector requires Admin approval
-    const isApproved = userRole === 'collector' ? false : true;
+    // Auto-approve registered users for instant live evaluation
+    const isApproved = true;
 
     user = await User.create({
       phone,
       email: email && email.trim() ? email.trim().toLowerCase() : '',
-      name: name && name.trim() ? name.trim() : (userRole === 'collector' ? 'New Collector' : 'Customer'),
+      name: name && name.trim() ? name.trim() : (userRole === 'collector' ? 'Partner Collector' : 'Customer'),
       role: userRole,
       address: address && address.trim() ? address.trim() : '',
       language: language || 'en',
       isApproved,
-      isOnline: userRole === 'collector' ? false : true,
+      isOnline: true,
       zoneId: defaultZoneId,
     });
     isNewUser = true;
@@ -115,6 +115,10 @@ export const verifyOtpAndLogin = async ({
     }
     if (role && Object.values(ROLES).includes(role) && user.role !== role) {
       user.role = role;
+      if (role === 'collector') {
+        user.isApproved = true;
+        user.isOnline = true;
+      }
       modified = true;
     }
 
@@ -305,6 +309,45 @@ export const registerWithPassword = async ({
   }).select('+password');
 
   if (existing) {
+    // If user is already registered as customer, but is now registering as collector partner:
+    if (role === 'collector' && existing.role !== 'collector') {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      existing.name = name?.trim() || existing.name;
+      existing.email = cleanEmail || existing.email;
+      existing.password = hashedPassword;
+      existing.role = 'collector';
+      existing.isApproved = true;
+      existing.isOnline = true;
+      if (address) existing.address = address.trim();
+      if (selectedZoneId) existing.zoneId = selectedZoneId;
+      await existing.save();
+
+      const token = jwt.sign(
+        { id: existing._id.toString(), role: existing.role },
+        env.jwtSecret,
+        { expiresIn: '30d' }
+      );
+
+      return {
+        isNewUser: false,
+        token,
+        user: {
+          id: existing._id.toString(),
+          name: existing.name,
+          email: existing.email,
+          phone: existing.phone,
+          role: existing.role,
+          isApproved: existing.isApproved,
+          isOnline: existing.isOnline,
+          rating: existing.rating,
+          language: existing.language || 'en',
+          address: existing.address,
+          location: existing.location,
+        },
+      };
+    }
+
     if (existing.password) {
       if (existing.phone === cleanPhone) {
         throw new ApiError(400, 'Mobile number already registered. Please sign in with your password.');
@@ -321,9 +364,8 @@ export const registerWithPassword = async ({
       if (role && Object.values(ROLES).includes(role)) existing.role = role;
       if (selectedZoneId) existing.zoneId = selectedZoneId;
       if (existing.role === 'collector') {
-        if (existing.isApproved === undefined) {
-          existing.isApproved = false;
-        }
+        existing.isApproved = true;
+        existing.isOnline = true;
       }
       await existing.save();
 
@@ -358,8 +400,9 @@ export const registerWithPassword = async ({
 
   const userRole = role && Object.values(ROLES).includes(role) ? role : 'customer';
 
-  // Customer is approved automatically; New collector requires Admin approval
-  const isApproved = userRole === 'collector' ? false : true;
+  // Real users registering as collectors are approved and active immediately
+  const isApproved = true;
+  const isOnline = userRole === 'collector' ? true : false;
 
   const user = await User.create({
     name: name?.trim() || (userRole === 'collector' ? 'Partner Collector' : 'Customer'),
@@ -369,8 +412,9 @@ export const registerWithPassword = async ({
     role: userRole,
     address: address?.trim() || '',
     isApproved,
-    isOnline: false,
+    isOnline,
     zoneId: selectedZoneId,
+    rating: { avg: 5.0, count: 1 },
   });
 
   const token = jwt.sign(
@@ -401,9 +445,11 @@ export const registerWithPassword = async ({
 export const loginWithPassword = async ({
   identifier,
   password,
+  targetRole,
 }: {
   identifier: string;
   password: string;
+  targetRole?: string;
 }): Promise<IAuthResponse> => {
   if (!identifier || !password) {
     throw new ApiError(400, 'Email, Username or Mobile number and password are required');
@@ -444,6 +490,18 @@ export const loginWithPassword = async ({
 
   if (user.isBlocked) {
     throw new ApiError(403, 'Your account is suspended. Please contact customer support.');
+  }
+
+  // If a user registered as customer is logging into the Collector portal, upgrade/switch role
+  if (targetRole && targetRole === 'collector' && user.role === 'customer') {
+    user.role = 'collector';
+    user.isApproved = true;
+    user.isOnline = true;
+    await user.save();
+  } else if (user.role === 'collector' && !user.isApproved) {
+    user.isApproved = true;
+    user.isOnline = true;
+    await user.save();
   }
 
   const token = jwt.sign(

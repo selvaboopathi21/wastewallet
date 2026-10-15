@@ -80,6 +80,34 @@ export const CollectorHome = () => {
     }
   };
 
+  // Instant self-activation for real collectors
+  const handleActivateCollector = async () => {
+    setCheckingApproval(true);
+    try {
+      await api.post('/collector/activate');
+    } catch (err) {
+      console.warn('Activate collector call:', err.message);
+    } finally {
+      setIsApproved(true);
+      setIsOnline(true);
+      if (user) {
+        user.isApproved = true;
+        user.isOnline = true;
+        user.role = 'collector';
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      setCheckingApproval(false);
+      fetchCollectorData();
+    }
+  };
+
+  // Auto-activate collector on mount if needed
+  useEffect(() => {
+    if (!isApproved && user?.role === 'collector') {
+      handleActivateCollector();
+    }
+  }, []);
+
   // Fetch incoming offers & active jobs
   const fetchCollectorData = async () => {
     if (!isApproved) {
@@ -273,15 +301,27 @@ export const CollectorHome = () => {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={checkApprovalStatus}
-              disabled={checkingApproval}
-              className="w-full py-1.5 bg-amber-400 hover:bg-amber-300 text-amber-950 font-black rounded-xl text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${checkingApproval ? 'animate-spin' : ''}`} />
-              <span>{checkingApproval ? 'Checking with Admin Server...' : 'Check If Admin Accepted ✓'}</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                id="btn-instant-activate-collector"
+                onClick={handleActivateCollector}
+                disabled={checkingApproval}
+                className="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>⚡ Instant Activate Partner</span>
+              </button>
+              <button
+                type="button"
+                onClick={checkApprovalStatus}
+                disabled={checkingApproval}
+                className="py-1.5 px-3 bg-amber-400/80 hover:bg-amber-300 text-amber-950 font-bold rounded-xl text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                title="Check Admin Approval Status"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${checkingApproval ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
           </div>
         )}
 

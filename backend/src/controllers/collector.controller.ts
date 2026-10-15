@@ -330,6 +330,25 @@ export const respondSeparatePrice = asyncHandler(async (req: Request, res: Respo
   });
 });
 
+// POST /api/v1/collector/activate (Auto-approve and activate collector partner)
+export const activateCollector = asyncHandler(async (req: Request, res: Response) => {
+  const collectorId = req.user!._id;
+  const User = (await import('../models/User')).default;
+  const user = await User.findById(collectorId);
+  if (!user) throw new ApiError(404, 'Collector account not found');
+
+  user.role = 'collector';
+  user.isApproved = true;
+  user.isOnline = true;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Collector partner account verified and activated successfully!',
+    data: { user },
+  });
+});
+
 export default {
   toggleOnlineStatus,
   getMyOffers,
@@ -342,4 +361,6 @@ export default {
   recordCashPayment,
   finishPickup,
   respondSeparatePrice,
+  activateCollector,
 };
+

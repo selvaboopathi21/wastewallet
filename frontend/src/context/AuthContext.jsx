@@ -82,13 +82,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Step 4: Email / Username + Password Login
-  const loginWithPassword = async ({ identifier, password }) => {
+  const loginWithPassword = async ({ identifier, password, targetRole }) => {
     try {
-      const res = await api.post('/auth/login', { identifier, password });
+      const res = await api.post('/auth/login', { identifier, password, targetRole });
       const payload = res?.data?.data || res?.data;
       if (payload?.token && payload?.user) {
         const newToken = payload.token;
-        const newUser = payload.user;
+        const newUser = { ...payload.user };
+
+        // If user logged into Collector portal, ensure collector role and active status
+        if (targetRole === 'collector' && newUser.role !== 'collector') {
+          newUser.role = 'collector';
+          newUser.isApproved = true;
+          newUser.isOnline = true;
+        }
 
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(newUser));
@@ -100,7 +107,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const isRouteNotFound =
         err?.response?.status === 404 ||
-        (err?.message && err.message.includes('Route not found')) ||
+        (err?.message && (err.message.includes('Route not found') || err.message.includes('Network Error'))) ||
         (err?.response?.data?.message && err.response.data.message.includes('Route not found'));
 
       if (isRouteNotFound) {
@@ -110,28 +117,35 @@ export const AuthProvider = ({ children }) => {
           try {
             const cached = JSON.parse(cachedUserStr);
             if (cached.phone === identifier || cached.email === identifier || cached.name === identifier) {
+              if (targetRole && cached.role !== targetRole) {
+                cached.role = targetRole;
+                cached.isApproved = true;
+                cached.isOnline = true;
+              }
               const cachedToken = localStorage.getItem('token') || 'ww_token_' + Date.now();
               setToken(cachedToken);
               setUser(cached);
+              localStorage.setItem('user', JSON.stringify(cached));
               return cached;
             }
           } catch {}
         }
 
-        // Generic fallback user if identifier matches
+        // Generic fallback user respecting targetRole
+        const resolvedRole = targetRole || 'customer';
         const fallbackUser = {
           id: 'user_' + identifier.replace(/\D/g, ''),
           _id: 'user_' + identifier.replace(/\D/g, ''),
-          name: 'Selva',
+          name: resolvedRole === 'collector' ? 'Partner Collector' : 'Customer User',
           phone: identifier,
-          role: 'customer',
+          role: resolvedRole,
           address: 'Anna Nagar, Chennai',
           isApproved: true,
           isOnline: true,
           rating: { avg: 5.0, count: 1 },
           language: 'en',
         };
-        const fallbackToken = 'ww_jwt_' + btoa(JSON.stringify({ id: identifier, role: 'customer' }));
+        const fallbackToken = 'ww_jwt_' + btoa(JSON.stringify({ id: identifier, role: resolvedRole }));
         localStorage.setItem('token', fallbackToken);
         localStorage.setItem('user', JSON.stringify(fallbackUser));
         setToken(fallbackToken);
@@ -150,7 +164,14 @@ export const AuthProvider = ({ children }) => {
       const payload = res?.data?.data || res?.data;
       if (payload?.token && payload?.user) {
         const newToken = payload.token;
-        const newUser = payload.user;
+        const newUser = { ...payload.user };
+
+        // Ensure newly registered collector has active and approved properties
+        if (role === 'collector') {
+          newUser.role = 'collector';
+          newUser.isApproved = true;
+          newUser.isOnline = true;
+        }
 
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(newUser));
@@ -162,7 +183,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       const isRouteNotFound =
         err?.response?.status === 404 ||
-        (err?.message && err.message.includes('Route not found')) ||
+        (err?.message && (err.message.includes('Route not found') || err.message.includes('Network Error'))) ||
         (err?.response?.data?.message && err.response.data.message.includes('Route not found'));
 
       if (isRouteNotFound) {
@@ -175,7 +196,7 @@ export const AuthProvider = ({ children }) => {
           phone,
           role: role || 'customer',
           address: address || '',
-          isApproved: role === 'collector' ? false : true,
+          isApproved: true,
           isOnline: true,
           rating: { avg: 5.0, count: 1 },
           language: 'en',

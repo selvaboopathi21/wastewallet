@@ -126,9 +126,11 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const identifier = req.body.identifier || req.body.phone || req.body.email;
   const { password } = req.body;
+  const targetRole = req.body.targetRole || req.body.role;
   const result = await authService.loginWithPassword({
     identifier,
     password,
+    targetRole,
   });
 
   res.status(200).json({

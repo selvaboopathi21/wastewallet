@@ -117,9 +117,11 @@ exports.register = (0, asyncHandler_1.default)(async (req, res) => {
 exports.login = (0, asyncHandler_1.default)(async (req, res) => {
     const identifier = req.body.identifier || req.body.phone || req.body.email;
     const { password } = req.body;
+    const targetRole = req.body.targetRole || req.body.role;
     const result = await auth_service_1.default.loginWithPassword({
         identifier,
         password,
+        targetRole,
     });
     res.status(200).json({
         success: true,

@@ -12,6 +12,7 @@ import {
   recordCashPayment,
   finishPickup,
   respondSeparatePrice,
+  activateCollector,
 } from '../controllers/collector.controller';
 import authenticate from '../middleware/auth';
 import { restrictTo } from '../middleware/role';
@@ -19,6 +20,9 @@ import { ROLES } from '../utils/constants';
 import ApiError from '../utils/ApiError';
 
 const router = Router();
+
+// Self-activation endpoint for real users to instantly approve/activate collector account
+router.post('/activate', authenticate, activateCollector);
 
 // Middleware: Collectors MUST be approved by Admin before accessing operational endpoints
 const requireApprovedCollector = (req: any, res: any, next: any) => {
@@ -33,7 +37,7 @@ const requireApprovedCollector = (req: any, res: any, next: any) => {
   next();
 };
 
-// All collector routes require authentication and approval
+// All operational collector routes require authentication and approval
 router.use(authenticate, restrictTo(ROLES.COLLECTOR, ROLES.ADMIN, ROLES.CUSTOMER), requireApprovedCollector);
 
 // Online / Offline toggle

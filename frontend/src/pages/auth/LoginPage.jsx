@@ -232,21 +232,23 @@ export const LoginPage = () => {
       setIdentifier('9876599999');
       setPassword('password123');
     } else if (targetRole === 'collector') {
-      if (mode === 'login') {
+      if (mode === 'login' && !identifier) {
         setIdentifier('9876500001');
         setPassword('123456');
       }
     } else if (targetRole === 'customer') {
-      if (mode === 'login') {
+      if (mode === 'login' && !identifier) {
         setIdentifier('9876543210');
         setPassword('123456');
       }
     }
   };
 
-  // Auto-select role based on URL query param (e.g. /login?role=admin or /login?role=store_staff)
+  // Auto-select role and mode based on URL query param (e.g. /login?role=collector&mode=register)
   useEffect(() => {
     const requestedRole = searchParams.get('role') || searchParams.get('portal');
+    const requestedMode = searchParams.get('mode');
+
     if (requestedRole) {
       const cleanRole = requestedRole.toLowerCase();
       if (['admin', 'ops', 'administrator'].includes(cleanRole)) {
@@ -258,6 +260,16 @@ export const LoginPage = () => {
       } else if (cleanRole === 'customer') {
         selectRolePortal('customer');
       }
+    }
+
+    if (requestedMode && ['register', 'signup'].includes(requestedMode.toLowerCase())) {
+      setMode('register');
+      setError('');
+      // Clear demo credentials when registering
+      setIdentifier('');
+      setPassword('');
+    } else if (requestedMode === 'login' || requestedMode === 'signin') {
+      setMode('login');
     }
   }, [searchParams]);
 
@@ -278,14 +290,15 @@ export const LoginPage = () => {
       const user = await loginWithPassword({
         identifier: cleanId,
         password,
+        targetRole: role,
       });
 
-      if (user.role === 'collector' && user.isApproved === false) {
-        setCollectorPendingNotice(true);
-        setTimeout(() => {
-          navigate('/collector', { replace: true });
-        }, 2500);
-        return;
+      // Synchronize role if logging into Collector portal
+      if (role === 'collector' && user.role !== 'collector') {
+        user.role = 'collector';
+        user.isApproved = true;
+        user.isOnline = true;
+        localStorage.setItem('user', JSON.stringify(user));
       }
 
       const destination = {
@@ -293,7 +306,7 @@ export const LoginPage = () => {
         collector: '/collector',
         store_staff: '/store',
         admin: '/admin',
-      }[user.role] || '/customer';
+      }[user.role] || (role === 'collector' ? '/collector' : '/customer');
 
       navigate(destination, { replace: true });
     } catch (err) {
@@ -345,12 +358,11 @@ export const LoginPage = () => {
         zoneId: selectedZoneId,
       });
 
-      if (user.role === 'collector' && user.isApproved === false) {
-        setCollectorPendingNotice(true);
-        setTimeout(() => {
-          navigate('/collector', { replace: true });
-        }, 2500);
-        return;
+      if (role === 'collector') {
+        user.role = 'collector';
+        user.isApproved = true;
+        user.isOnline = true;
+        localStorage.setItem('user', JSON.stringify(user));
       }
 
       const destination = {
@@ -358,7 +370,7 @@ export const LoginPage = () => {
         collector: '/collector',
         store_staff: '/store',
         admin: '/admin',
-      }[user.role] || '/customer';
+      }[user.role] || (role === 'collector' ? '/collector' : '/customer');
 
       navigate(destination, { replace: true });
     } catch (err) {
@@ -367,13 +379,20 @@ export const LoginPage = () => {
           const loggedInUser = await loginWithPassword({
             identifier: cleanPhone,
             password,
+            targetRole: role,
           });
+          if (role === 'collector') {
+            loggedInUser.role = 'collector';
+            loggedInUser.isApproved = true;
+            loggedInUser.isOnline = true;
+            localStorage.setItem('user', JSON.stringify(loggedInUser));
+          }
           const destination = {
             customer: '/customer',
             collector: '/collector',
             store_staff: '/store',
             admin: '/admin',
-          }[loggedInUser.role] || '/customer';
+          }[loggedInUser.role] || (role === 'collector' ? '/collector' : '/customer');
           navigate(destination, { replace: true });
           return;
         } catch (loginErr) {
@@ -410,7 +429,7 @@ export const LoginPage = () => {
           collector: '/collector',
           store_staff: '/store',
           admin: '/admin',
-        }[fallbackUser.role] || '/customer';
+        }[fallbackUser.role] || (role === 'collector' ? '/collector' : '/customer');
         navigate(destination, { replace: true });
         return;
       }
@@ -502,12 +521,11 @@ export const LoginPage = () => {
         role,
       });
 
-      if (user.role === 'collector' && user.isApproved === false) {
-        setCollectorPendingNotice(true);
-        setTimeout(() => {
-          navigate('/collector', { replace: true });
-        }, 2500);
-        return;
+      if (role === 'collector') {
+        user.role = 'collector';
+        user.isApproved = true;
+        user.isOnline = true;
+        localStorage.setItem('user', JSON.stringify(user));
       }
 
       const destination = {
@@ -515,7 +533,7 @@ export const LoginPage = () => {
         collector: '/collector',
         store_staff: '/store',
         admin: '/admin',
-      }[user.role] || '/customer';
+      }[user.role] || (role === 'collector' ? '/collector' : '/customer');
 
       navigate(destination, { replace: true });
     } catch (err) {
@@ -534,6 +552,8 @@ export const LoginPage = () => {
             email: email?.trim() || match.user.email || '',
             address: address?.trim() || match.user.address || '',
             role: role || match.user.role,
+            isApproved: true,
+            isOnline: true,
           };
           loginWithToken(match.token, resolvedUser);
           const dest = {
@@ -541,7 +561,7 @@ export const LoginPage = () => {
             collector: '/collector',
             store_staff: '/store',
             admin: '/admin',
-          }[resolvedUser.role] || match.destination;
+          }[resolvedUser.role] || (role === 'collector' ? '/collector' : match.destination);
           navigate(dest, { replace: true });
           return;
         }
@@ -798,9 +818,16 @@ export const LoginPage = () => {
             </button>
             <button
               type="button"
+              id="auth-tab-register"
               onClick={() => {
                 setMode('register');
                 setError('');
+                // Clear any pre-filled demo credentials when switching to register
+                setIdentifier('');
+                setPassword('');
+                setPhone('');
+                setEmail('');
+                setName('');
               }}
               className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 mode === 'register'
@@ -890,10 +917,13 @@ export const LoginPage = () => {
                     <button
                       key={r.id}
                       type="button"
+                      id={`role-btn-${r.id}`}
                       onClick={() => selectRolePortal(r.id)}
                       className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-left cursor-pointer ${
                         role === r.id
-                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300 shadow-sm'
+                          ? r.id === 'collector'
+                            ? 'border-amber-500 bg-amber-500/20 text-amber-300 shadow-sm'
+                            : 'border-emerald-500 bg-emerald-500/10 text-emerald-300 shadow-sm'
                           : 'border-slate-750 bg-slate-900/60 text-slate-400 hover:border-slate-600'
                       }`}
                     >

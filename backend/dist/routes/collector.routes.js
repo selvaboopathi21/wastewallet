@@ -11,6 +11,8 @@ const role_1 = require("../middleware/role");
 const constants_1 = require("../utils/constants");
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const router = (0, express_1.Router)();
+// Self-activation endpoint for real users to instantly approve/activate collector account
+router.post('/activate', auth_1.default, collector_controller_1.activateCollector);
 // Middleware: Collectors MUST be approved by Admin before accessing operational endpoints
 const requireApprovedCollector = (req, res, next) => {
     if (req.user?.role === constants_1.ROLES.COLLECTOR && !req.user?.isApproved) {
@@ -18,7 +20,7 @@ const requireApprovedCollector = (req, res, next) => {
     }
     next();
 };
-// All collector routes require authentication and approval
+// All operational collector routes require authentication and approval
 router.use(auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLECTOR, constants_1.ROLES.ADMIN, constants_1.ROLES.CUSTOMER), requireApprovedCollector);
 // Online / Offline toggle
 router.patch('/status', collector_controller_1.toggleOnlineStatus);

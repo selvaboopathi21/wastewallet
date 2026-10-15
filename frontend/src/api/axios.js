@@ -10,9 +10,9 @@ const getBaseUrl = () => {
   const isBrowser = typeof window !== 'undefined';
   const hostname = isBrowser ? window.location.hostname : '';
 
-  // 1. If running on desktop localhost -> ALWAYS use localhost backend on port 5000!
+  // 1. If running on desktop localhost -> use envUrl if provided (e.g. production preview), else localhost:5000
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
-    return 'http://localhost:5000/api/v1';
+    return envUrl || 'http://localhost:5000/api/v1';
   }
 
   // 2. Mobile testing on local Wi-Fi (e.g. phone accessing http://192.168.1.5:5173)

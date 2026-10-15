@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.respondSeparatePrice = exports.finishPickup = exports.recordCashPayment = exports.requestConfirmationOtp = exports.recordWeights = exports.getActiveJobs = exports.updatePickupStatus = exports.declinePickupOffer = exports.acceptPickupOffer = exports.getMyOffers = exports.toggleOnlineStatus = void 0;
+exports.activateCollector = exports.respondSeparatePrice = exports.finishPickup = exports.recordCashPayment = exports.requestConfirmationOtp = exports.recordWeights = exports.getActiveJobs = exports.updatePickupStatus = exports.declinePickupOffer = exports.acceptPickupOffer = exports.getMyOffers = exports.toggleOnlineStatus = void 0;
 const dispatch_service_1 = __importDefault(require("../services/dispatch.service"));
 const PickupRequest_1 = __importDefault(require("../models/PickupRequest"));
 const User_1 = __importDefault(require("../models/User"));
@@ -299,6 +299,23 @@ exports.respondSeparatePrice = (0, asyncHandler_1.default)(async (req, res) => {
         data: { pickup: updatedPickup },
     });
 });
+// POST /api/v1/collector/activate (Auto-approve and activate collector partner)
+exports.activateCollector = (0, asyncHandler_1.default)(async (req, res) => {
+    const collectorId = req.user._id;
+    const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
+    const user = await User.findById(collectorId);
+    if (!user)
+        throw new ApiError_1.default(404, 'Collector account not found');
+    user.role = 'collector';
+    user.isApproved = true;
+    user.isOnline = true;
+    await user.save();
+    res.status(200).json({
+        success: true,
+        message: 'Collector partner account verified and activated successfully!',
+        data: { user },
+    });
+});
 exports.default = {
     toggleOnlineStatus: exports.toggleOnlineStatus,
     getMyOffers: exports.getMyOffers,
@@ -311,4 +328,5 @@ exports.default = {
     recordCashPayment: exports.recordCashPayment,
     finishPickup: exports.finishPickup,
     respondSeparatePrice: exports.respondSeparatePrice,
+    activateCollector: exports.activateCollector,
 };

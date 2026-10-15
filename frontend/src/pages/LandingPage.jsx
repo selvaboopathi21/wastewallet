@@ -203,7 +203,7 @@ export const LandingPage = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
             <Link
-              to="/login"
+              to="/login?role=collector&mode=register"
               className="w-full sm:w-auto px-5 py-3.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-white font-bold text-sm rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Truck className="w-4 h-4 text-teal-400" />
@@ -410,7 +410,7 @@ export const LandingPage = () => {
             </div>
             <div className="shrink-0 w-full sm:w-auto">
               <Link
-                to="/login"
+                to="/login?role=collector&mode=register"
                 className="w-full sm:w-auto px-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-2xl shadow-xl shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
               >
                 <span>Register As Collector Partner</span>
