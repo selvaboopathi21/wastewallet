@@ -30,6 +30,7 @@ export const AdminDashboard = () => {
   const [fraudAlerts, setFraudAlerts] = useState([]);
   const [collectors, setCollectors] = useState([]);
   const [collectorFilter, setCollectorFilter] = useState('all'); // 'all' | 'pending' | 'approved'
+  const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'collector' | 'customer'
   const [searchQuery, setSearchQuery] = useState('');
   const [approvalFeedback, setApprovalFeedback] = useState('');
   const [updatingCollectorId, setUpdatingCollectorId] = useState(null);
@@ -76,14 +77,23 @@ export const AdminDashboard = () => {
     setUpdatingCollectorId(collectorId);
     setApprovalFeedback('');
     try {
-      await api.patch(`/admin/collectors/${collectorId}/approve`, {
+      const res = await api.patch(`/admin/collectors/${collectorId}/approve`, {
         isApproved: shouldApprove,
       });
+
+      const updatedUser = res?.data?.data?.collector;
 
       setCollectors((prev) =>
         prev.map((c) =>
           c._id === collectorId
-            ? { ...c, isApproved: shouldApprove, isOnline: shouldApprove ? c.isOnline : false }
+            ? {
+                ...c,
+                isApproved: shouldApprove,
+                isRejected: !shouldApprove,
+                isOnline: false,
+                role: shouldApprove ? 'collector' : (updatedUser?.role || c.role || 'collector'),
+                ...(updatedUser || {}),
+              }
             : c
         )
       );
@@ -91,7 +101,7 @@ export const AdminDashboard = () => {
       setApprovalFeedback(
         shouldApprove
           ? `✓ "${collectorName}" ACCEPTED! Collector partner can now go online and receive scrap pickup jobs.`
-          : `✗ "${collectorName}" REJECTED / REVOKED! Collector cannot go online or accept pickups.`
+          : `✗ "${collectorName}" REJECTED! Application marked as not approved by admin.`
       );
 
       setTimeout(() => setApprovalFeedback(''), 5000);
@@ -254,10 +264,10 @@ export const AdminDashboard = () => {
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                Collector Partner Verification & Approvals
+                User Accounts & Partner Verification
               </h3>
               <p className="text-2xs text-slate-500">
-                New collectors must be accepted by Admin before they can go online and receive scrap pickups
+                Review newly registered collector partners and customers. New collectors must be accepted by Admin before going online.
               </p>
             </div>
           </div>
@@ -301,51 +311,97 @@ export const AdminDashboard = () => {
         )}
 
         {/* Filters and Search Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setCollectorFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                collectorFilter === 'all'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              All ({collectors.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollectorFilter('pending')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
-                collectorFilter === 'pending'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
-                  : 'text-amber-800 hover:text-amber-950'
-              }`}
-            >
-              <span>Pending</span>
-              <span className="text-2xs bg-black/10 px-1.5 py-0.2 rounded-full font-mono">
-                {collectors.filter((c) => !c.isApproved).length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollectorFilter('approved')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                collectorFilter === 'approved'
-                  ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                  : 'text-emerald-700 hover:text-emerald-900'
-              }`}
-            >
-              Approved ({collectors.filter((c) => c.isApproved).length})
-            </button>
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Role Filter Tabs */}
+            <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setRoleFilter('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  roleFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                All Roles ({collectors.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRoleFilter('collector')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  roleFilter === 'collector'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                    : 'text-amber-800 hover:text-amber-950'
+                }`}
+              >
+                <span>🚚 Collectors</span>
+                <span className="text-2xs bg-black/10 px-1.5 py-0.2 rounded-full font-mono">
+                  {collectors.filter((c) => c.role === 'collector').length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRoleFilter('customer')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  roleFilter === 'customer'
+                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                    : 'text-emerald-700 hover:text-emerald-900'
+                }`}
+              >
+                <span>👤 Customers</span>
+                <span className="text-2xs bg-black/10 px-1.5 py-0.2 rounded-full font-mono">
+                  {collectors.filter((c) => c.role === 'customer').length}
+                </span>
+              </button>
+            </div>
+
+            {/* Approval Status Filter */}
+            <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setCollectorFilter('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  collectorFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                All Status
+              </button>
+              <button
+                type="button"
+                onClick={() => setCollectorFilter('pending')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  collectorFilter === 'pending'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                    : 'text-amber-800 hover:text-amber-950'
+                }`}
+              >
+                <span>Pending</span>
+                <span className="text-2xs bg-black/10 px-1.5 py-0.2 rounded-full font-mono">
+                  {collectors.filter((c) => !c.isApproved).length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCollectorFilter('approved')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  collectorFilter === 'approved'
+                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                    : 'text-emerald-700 hover:text-emerald-900'
+                }`}
+              >
+                Approved ({collectors.filter((c) => c.isApproved).length})
+              </button>
+            </div>
           </div>
 
           <div className="relative flex-1 max-w-xs">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by name, phone, zone..."
+              placeholder="Search by name, phone, zone, role..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -353,13 +409,17 @@ export const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Collectors List */}
+        {/* Collectors & Customers List */}
         {collectors.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-6">No registered collectors found.</p>
+          <p className="text-xs text-slate-400 text-center py-6">No registered accounts found.</p>
         ) : (
           <div className="space-y-3 pt-2">
             {collectors
               .filter((c) => {
+                if (roleFilter !== 'all') {
+                  const r = c.role || 'collector';
+                  if (r !== roleFilter) return false;
+                }
                 if (collectorFilter === 'pending') return !c.isApproved;
                 if (collectorFilter === 'approved') return c.isApproved;
                 return true;
@@ -372,6 +432,7 @@ export const AdminDashboard = () => {
                   c.name?.toLowerCase().includes(query) ||
                   c.phone?.includes(query) ||
                   c.email?.toLowerCase().includes(query) ||
+                  (c.role && c.role.toLowerCase().includes(query)) ||
                   zoneName.toLowerCase().includes(query)
                 );
               })
@@ -383,6 +444,7 @@ export const AdminDashboard = () => {
                     : 'Chennai Central (Anna Nagar)');
 
                 const isBusyUpdating = updatingCollectorId === c._id;
+                const isCustomer = c.role === 'customer';
 
                 return (
                   <div
@@ -394,11 +456,22 @@ export const AdminDashboard = () => {
                     }`}
                   >
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                      {/* Left: Collector Details */}
+                      {/* Left: User Details */}
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-black text-sm text-slate-900">
-                            {c.name || 'New Collector'}
+                            {c.name || (isCustomer ? 'Customer User' : 'New Collector')}
+                          </span>
+
+                          {/* Role Badge */}
+                          <span
+                            className={`text-3xs font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                              isCustomer
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : 'bg-amber-100 text-amber-900 border border-amber-200'
+                            }`}
+                          >
+                            {isCustomer ? '👤 Customer' : '🚚 Collector'}
                           </span>
 
                           {/* Approval Status Badge */}
@@ -406,27 +479,35 @@ export const AdminDashboard = () => {
                             className={`text-3xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 ${
                               c.isApproved
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : c.isRejected
+                                ? 'bg-rose-100 text-rose-800 border border-rose-300'
                                 : 'bg-amber-200 text-amber-950 border border-amber-300 animate-pulse'
                             }`}
                           >
-                            {c.isApproved ? '✓ Approved Partner' : '⏳ Pending Admin Approval'}
+                            {c.isApproved
+                              ? '✓ Approved Partner'
+                              : c.isRejected
+                              ? '✗ Not Approved by Admin'
+                              : '⏳ Pending Admin Approval'}
                           </span>
 
-                          {/* Work Status Badge */}
-                          {c.isApproved ? (
-                            <span
-                              className={`text-3xs font-bold px-2 py-0.5 rounded-md ${
-                                c.isOnline
-                                  ? 'bg-emerald-500 text-white animate-pulse'
-                                  : 'bg-slate-200 text-slate-600'
-                              }`}
-                            >
-                              {c.isOnline ? '🟢 Online & Ready' : '⚪ Currently Offline'}
-                            </span>
-                          ) : (
-                            <span className="text-3xs font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
-                              ⛔ Work Locked (Not Approved)
-                            </span>
+                          {/* Work Status Badge for Collectors */}
+                          {!isCustomer && (
+                            c.isApproved ? (
+                              <span
+                                className={`text-3xs font-bold px-2 py-0.5 rounded-md ${
+                                  c.isOnline
+                                    ? 'bg-emerald-500 text-white animate-pulse'
+                                    : 'bg-slate-200 text-slate-600'
+                                }`}
+                              >
+                                {c.isOnline ? '🟢 Online & Ready' : '⚪ Currently Offline'}
+                              </span>
+                            ) : (
+                              <span className="text-3xs font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
+                                ⛔ Work Locked (Not Approved)
+                              </span>
+                            )
                           )}
 
                           <span className="text-3xs font-mono font-bold bg-white text-slate-600 px-2 py-0.5 rounded border border-slate-200">
@@ -473,7 +554,7 @@ export const AdminDashboard = () => {
                               ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
                               : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20 hover:shadow-md'
                           }`}
-                          title="Accept collector: Grants permission to go online and receive scrap collection orders"
+                          title="Accept collector: Grants permission to be an active Collector partner"
                         >
                           <Check className="w-4 h-4 stroke-[3]" />
                           <span>{c.isApproved ? 'Accepted ✓' : '✓ Accept Partner'}</span>
@@ -483,16 +564,16 @@ export const AdminDashboard = () => {
                         <button
                           type="button"
                           onClick={() => handleSetApproval(c._id, false, c.name)}
-                          disabled={isBusyUpdating || (!c.isApproved && false)}
+                          disabled={isBusyUpdating || c.isRejected}
                           className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
-                            !c.isApproved
-                              ? 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300'
-                              : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                            c.isRejected
+                              ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                              : 'bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 shadow-xs'
                           }`}
-                          title="Reject or revoke: Disables collector account from taking pickups"
+                          title="Reject: Demotes user to Customer and revokes all Collector privileges"
                         >
                           <X className="w-4 h-4 stroke-[3]" />
-                          <span>{c.isApproved ? '✗ Revoke' : '✗ Reject'}</span>
+                          <span>{c.isRejected ? 'Rejected ✗' : '✗ Reject'}</span>
                         </button>
                       </div>
                     </div>

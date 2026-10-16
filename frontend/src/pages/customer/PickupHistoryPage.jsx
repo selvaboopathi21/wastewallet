@@ -45,6 +45,20 @@ export const PickupHistoryPage = () => {
     }
   };
 
+  const handleCancelFromHistory = async (e, pickupId) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to cancel this scrap pickup request?')) {
+      return;
+    }
+    try {
+      await api.patch(`/pickups/${pickupId}/cancel`);
+      alert('Pickup request has been cancelled.');
+      fetchPickups();
+    } catch (err) {
+      alert(err.message || 'Failed to cancel pickup');
+    }
+  };
+
   useEffect(() => {
     fetchPickups();
   }, []);
@@ -146,11 +160,23 @@ export const PickupHistoryPage = () => {
               >
                 {/* Status + Mode Header */}
                 <div className="flex items-center justify-between">
-                  <span
-                    className={`text-2xs font-bold px-2 py-0.5 rounded-md border ${statusMeta.color}`}
-                  >
-                    {statusMeta.label}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-2xs font-bold px-2 py-0.5 rounded-md border ${statusMeta.color}`}
+                    >
+                      {statusMeta.label}
+                    </span>
+                    {['pending', 'offered', 'accepted', 'on_the_way'].includes(p.status) && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleCancelFromHistory(e, p._id)}
+                        className="text-3xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-md border border-rose-200 transition-colors cursor-pointer"
+                        title="Cancel this pickup request"
+                      >
+                        ✕ Cancel
+                      </button>
+                    )}
+                  </div>
                   <span className="text-2xs text-slate-400 font-mono">
                     {new Date(p.createdAt).toLocaleDateString('en-IN', {
                       day: 'numeric',

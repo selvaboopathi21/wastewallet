@@ -111,6 +111,10 @@ const userSchema = new mongoose_1.Schema({
         type: Boolean,
         default: false,
     },
+    isRejected: {
+        type: Boolean,
+        default: false,
+    },
     isOnline: {
         type: Boolean,
         default: false,

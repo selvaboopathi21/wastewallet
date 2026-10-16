@@ -15,6 +15,7 @@ import {
   PackageCheck,
   Sparkles,
   RefreshCw,
+  XCircle,
 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuth from '../../hooks/useAuth';
@@ -22,10 +23,12 @@ import useSocket from '../../hooks/useSocket';
 
 export const CollectorHome = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const { socket } = useSocket();
 
   const [isApproved, setIsApproved] = useState(user?.isApproved ?? false);
+  const [isRejected, setIsRejected] = useState(user?.isRejected ?? false);
+  const [switchingRole, setSwitchingRole] = useState(false);
   const [checkingApproval, setCheckingApproval] = useState(false);
   const [isOnline, setIsOnline] = useState(user?.isOnline ?? true);
   const [offers, setOffers] = useState([]);
@@ -50,6 +53,7 @@ export const CollectorHome = () => {
 
   const [declinedOfferIds, setDeclinedOfferIds] = useState(getSavedDeclinedIds);
   const declinedOfferIdsRef = useRef(new Set(getSavedDeclinedIds()));
+  const cancelledOfferIdsRef = useRef(new Set());
 
   const recordDeclinedOfferId = (id) => {
     declinedOfferIdsRef.current.add(id);
@@ -69,9 +73,17 @@ export const CollectorHome = () => {
       const res = await api.get('/auth/me');
       const u = res?.data?.data?.user || res?.data?.user;
       if (u) {
-        setIsApproved(u.isApproved);
+        setIsApproved(Boolean(u.isApproved));
+        setIsRejected(Boolean(u.isRejected));
         if (user) {
-          user.isApproved = u.isApproved;
+          user.isApproved = Boolean(u.isApproved);
+          user.isRejected = Boolean(u.isRejected);
+          user.role = u.role;
+          localStorage.setItem('user', JSON.stringify(user));
+        }
+        if (u.role === 'customer' && !u.isRejected) {
+          navigate('/customer', { replace: true });
+          return;
         }
         if (u.isApproved) {
           setIsOnline(u.isOnline ?? true);
@@ -84,31 +96,46 @@ export const CollectorHome = () => {
     }
   };
 
-  // Instant self-activation for real collectors
-  const handleActivateCollector = async () => {
-    setCheckingApproval(true);
-    try {
-      await api.post('/collector/activate');
-    } catch (err) {
-      console.warn('Activate collector call:', err.message);
-    } finally {
-      setIsApproved(true);
-      setIsOnline(true);
-      if (user) {
-        user.isApproved = true;
-        user.isOnline = true;
-        user.role = 'collector';
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-      setCheckingApproval(false);
+  // Check approval status with server
+  const handleCheckApproval = async () => {
+    await checkApprovalStatus();
+    if (isApproved) {
       fetchCollectorData();
     }
   };
 
-  // Auto-activate collector on mount if needed
+  // Listen for real-time approval/rejection updates from Admin
   useEffect(() => {
-    if (!isApproved && user?.role === 'collector') {
-      handleActivateCollector();
+    if (!socket) return;
+    const handleApprovalChanged = (data) => {
+      setIsApproved(Boolean(data.isApproved));
+      setIsRejected(Boolean(data.isRejected));
+      setIsOnline(Boolean(data.isOnline));
+      if (user) {
+        user.isApproved = Boolean(data.isApproved);
+        user.isRejected = Boolean(data.isRejected);
+        if (data.role) user.role = data.role;
+        localStorage.setItem('user', JSON.stringify(user));
+      }
+      if (data.isApproved) {
+        fetchCollectorData();
+      }
+    };
+
+    socket.on('collector.approval_changed', handleApprovalChanged);
+    return () => {
+      socket.off('collector.approval_changed', handleApprovalChanged);
+    };
+  }, [socket]);
+
+  // Re-check approval status on mount without auto-activating
+  useEffect(() => {
+    if (user?.role !== 'collector') {
+      navigate('/customer', { replace: true });
+      return;
+    }
+    if (!isApproved) {
+      checkApprovalStatus();
     }
   }, []);
 
@@ -128,24 +155,20 @@ export const CollectorHome = () => {
       ]);
 
       const rawOffers = offersRes?.data?.offers || offersRes?.offers || [];
-      // Filter out any offers that the collector has passed on using ref + storage
+      // Filter out any offers that the collector has passed on, or customer has cancelled
       const declinedSet = declinedOfferIdsRef.current;
-      const validOffers = rawOffers.filter((o) => o?._id && !declinedSet.has(o._id));
+      const cancelledSet = cancelledOfferIdsRef.current;
+      const validOffers = rawOffers.filter(
+        (o) => o?._id && !declinedSet.has(o._id) && !cancelledSet.has(o._id) && o.status !== 'cancelled'
+      );
 
-      setOffers((prev) => {
-        const serverIds = new Set(validOffers.map((o) => o._id));
-        // Keep active unexpired socket offers so the UI never flickers or disappears
-        const unexpiredSocketOffers = prev.filter(
-          (o) =>
-            !declinedSet.has(o._id) &&
-            !serverIds.has(o._id) &&
-            (!o.offerExpiresAt || new Date(o.offerExpiresAt) > new Date())
-        );
-        return [...validOffers, ...unexpiredSocketOffers];
-      });
+      setOffers(validOffers);
 
-      const jobs = jobsRes?.data?.activeJobs || jobsRes?.activeJobs || [];
-      setActiveJobs(jobs);
+      const rawJobs = jobsRes?.data?.activeJobs || jobsRes?.activeJobs || [];
+      const validJobs = rawJobs.filter(
+        (j) => j?._id && !cancelledSet.has(j._id) && !['cancelled', 'expired'].includes(j.status)
+      );
+      setActiveJobs(validJobs);
 
       const serverCompleted = jobsRes?.data?.completedJobs || jobsRes?.completedJobs || [];
       setCompletedJobs(serverCompleted);
@@ -154,7 +177,7 @@ export const CollectorHome = () => {
       if (serverStats) {
         setStats(serverStats);
       } else {
-        const allCompleted = [...jobs, ...serverCompleted].filter((j) => ['confirmed', 'paid', 'completed'].includes(j.status));
+        const allCompleted = [...validJobs, ...serverCompleted].filter((j) => ['confirmed', 'paid', 'completed'].includes(j.status));
         setStats({
           completedToday: allCompleted.length,
           totalWeightKg: allCompleted.reduce((acc, j) => acc + (j.totalPickupWeightKg || 0), 0),
@@ -188,8 +211,10 @@ export const CollectorHome = () => {
       const pickup = eventData?.pickup;
       if (!pickup?._id) return;
 
-      // If collector passed on this offer, strictly ignore it
+      // If collector passed on this offer, or if it was cancelled, strictly ignore it
       if (declinedOfferIdsRef.current.has(pickup._id)) return;
+      if (cancelledOfferIdsRef.current.has(pickup._id)) return;
+      if (pickup.status === 'cancelled') return;
 
       // Guard: If this offer was specifically targeted to a different collector, ignore it
       const targetCollector =
@@ -202,6 +227,8 @@ export const CollectorHome = () => {
 
       setOffers((prev) => {
         if (declinedOfferIdsRef.current.has(pickup._id)) return prev;
+        if (cancelledOfferIdsRef.current.has(pickup._id)) return prev;
+        if (pickup.status === 'cancelled') return prev;
         const exists = prev.some((o) => o._id === pickup._id);
         if (exists) {
           return prev.map((o) => (o._id === pickup._id ? { ...o, ...pickup } : o));
@@ -211,7 +238,28 @@ export const CollectorHome = () => {
       setTimeout(fetchCollectorData, 500);
     };
 
-    const handleStatusChanged = () => {
+    const removeCancelledPickup = (pickupId) => {
+      if (!pickupId) return;
+      cancelledOfferIdsRef.current.add(pickupId);
+      setOffers((prev) => prev.filter((o) => o._id !== pickupId));
+      setActiveJobs((prev) => prev.filter((j) => j._id !== pickupId));
+    };
+
+    const handlePickupCancelled = (data) => {
+      const pickupId = data?.pickupId || data?.requestId || data?._id || data?.id;
+      if (pickupId) {
+        removeCancelledPickup(pickupId);
+      }
+      fetchCollectorData();
+    };
+
+    const handleStatusChanged = (data) => {
+      if (data?.newStatus === 'cancelled' || data?.status === 'cancelled') {
+        const pickupId = data?.pickupId || data?.requestId || data?._id || data?.id;
+        if (pickupId) {
+          removeCancelledPickup(pickupId);
+        }
+      }
       fetchCollectorData();
     };
 
@@ -226,11 +274,13 @@ export const CollectorHome = () => {
     };
 
     socket.on('pickup.offered', handlePickupOffered);
+    socket.on('pickup.cancelled', handlePickupCancelled);
     socket.on('pickup.status.changed', handleStatusChanged);
     socket.on('collector.approval_changed', handleApprovalChanged);
 
     return () => {
       socket.off('pickup.offered', handlePickupOffered);
+      socket.off('pickup.cancelled', handlePickupCancelled);
       socket.off('pickup.status.changed', handleStatusChanged);
       socket.off('collector.approval_changed', handleApprovalChanged);
     };
@@ -282,6 +332,130 @@ export const CollectorHome = () => {
       setRespondingOfferId(null);
     }
   };
+
+  const handleSwitchToCustomer = async () => {
+    setSwitchingRole(true);
+    try {
+      if (updateProfile) {
+        await updateProfile({ role: 'customer' });
+      } else {
+        await api.patch('/auth/profile', { role: 'customer' });
+      }
+    } catch (e) {
+      // Non-blocking fallback
+    }
+    if (user) {
+      user.role = 'customer';
+      user.isApproved = true;
+      user.isRejected = false;
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+    navigate('/customer', { replace: true });
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  // Simple, dedicated "Application Not Approved by Admin" Screen
+  if (isRejected || user?.isRejected) {
+    return (
+      <div className="space-y-4">
+        {/* Partner Info Header Bar */}
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-3xl p-4 shadow-sm flex items-center justify-between border border-slate-700/60">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black text-white">{user?.name || 'Partner Collector'}</h2>
+              <span className="text-3xs font-bold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                Not Approved
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">{user?.phone || 'Collector Account'}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="text-xs font-bold text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+          >
+            Sign Out
+          </button>
+        </div>
+
+        {/* Dedicated Simple Not Approved Card */}
+        <div className="bg-white rounded-3xl border border-rose-200/90 p-6 shadow-sm text-center space-y-4">
+          <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto border-2 border-rose-200">
+            <XCircle className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h1 className="text-lg font-black text-slate-900 tracking-tight">
+              Application Not Approved by Admin
+            </h1>
+            <p className="text-xs text-slate-600 max-w-xs mx-auto leading-relaxed">
+              Your collector partner application was not approved by the administrator at this time.
+            </p>
+          </div>
+
+          {/* Simple Contact / Support Box */}
+          <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl text-left space-y-2.5">
+            <p className="text-2xs font-bold uppercase tracking-wider text-slate-500">
+              Need assistance or want to re-apply?
+            </p>
+            <div className="text-xs text-slate-700 space-y-1.5 font-medium">
+              <p className="flex items-center gap-2">
+                <span className="text-base shrink-0">✉️</span>
+                <span>Admin Support:</span>
+                <a
+                  href="mailto:admin@wastewallet.com"
+                  className="text-emerald-700 font-bold hover:underline"
+                >
+                  admin@wastewallet.com
+                </a>
+              </p>
+              <p className="flex items-center gap-2">
+                <span className="text-base shrink-0">📞</span>
+                <span>Helpline:</span>
+                <span className="text-slate-900 font-bold">1800-WASTE-WALLET</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Simple Action Buttons */}
+          <div className="space-y-2 pt-2">
+            <button
+              type="button"
+              onClick={handleSwitchToCustomer}
+              disabled={switchingRole}
+              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-xs transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+            >
+              <span>{switchingRole ? 'Switching to Customer...' : 'Continue as Customer (Sell Recyclables)'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCheckApproval}
+                disabled={checkingApproval}
+                className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${checkingApproval ? 'animate-spin' : ''}`} />
+                <span>{checkingApproval ? 'Checking...' : 'Check Status Again'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex-1 py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -336,21 +510,12 @@ export const CollectorHome = () => {
               <button
                 type="button"
                 id="btn-instant-activate-collector"
-                onClick={handleActivateCollector}
+                onClick={handleCheckApproval}
                 disabled={checkingApproval}
-                className="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>⚡ Instant Activate Partner</span>
-              </button>
-              <button
-                type="button"
-                onClick={checkApprovalStatus}
-                disabled={checkingApproval}
-                className="py-1.5 px-3 bg-amber-400/80 hover:bg-amber-300 text-amber-950 font-bold rounded-xl text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
-                title="Check Admin Approval Status"
+                className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${checkingApproval ? 'animate-spin' : ''}`} />
+                <span>{checkingApproval ? 'Checking Approval with Admin...' : '🔄 Refresh Admin Approval Status'}</span>
               </button>
             </div>
           </div>

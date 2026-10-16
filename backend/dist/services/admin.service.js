@@ -279,13 +279,15 @@ exports.getAdminReports = getAdminReports;
 // --- USER MANAGEMENT (Approve / Block) ---
 const updateCollectorApproval = async (collectorId, isApproved) => {
     const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
-    const updateData = { isApproved };
-    if (!isApproved) {
-        updateData.isOnline = false;
-    }
-    const collector = await User.findOneAndUpdate({ _id: new mongoose_1.Types.ObjectId(collectorId), role: 'collector' }, updateData, { new: true }).populate('zoneId', 'name');
+    const updateData = {
+        isApproved,
+        isRejected: !isApproved,
+        isOnline: false,
+        role: 'collector',
+    };
+    const collector = await User.findOneAndUpdate({ _id: new mongoose_1.Types.ObjectId(collectorId) }, updateData, { new: true }).populate('zoneId', 'name');
     if (!collector) {
-        throw new ApiError_1.default(404, 'Collector not found');
+        throw new ApiError_1.default(404, 'Collector account not found');
     }
     // Real-time broadcast to collector
     try {
@@ -293,7 +295,9 @@ const updateCollectorApproval = async (collectorId, isApproved) => {
         const io = getIO();
         io.to(`user:${collector._id.toString()}`).emit('collector.approval_changed', {
             isApproved: collector.isApproved,
+            isRejected: collector.isRejected,
             isOnline: collector.isOnline,
+            role: collector.role,
         });
     }
     catch (err) {

@@ -19,10 +19,12 @@ import {
   Layers,
 } from 'lucide-react';
 import api from '../../api/axios';
+import useAuth from '../../hooks/useAuth';
 import useSocket from '../../hooks/useSocket';
 
 export const StoreIntakePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { socket } = useSocket();
 
   const [batches, setBatches] = useState([]);
@@ -182,6 +184,26 @@ export const StoreIntakePage = () => {
           </p>
         </div>
       </div>
+
+      {user?.role === 'collector' && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-amber-900 text-xs font-semibold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-base shrink-0">🚚</span>
+            <div>
+              <span className="font-bold block">Testing Mode: Active Session as Collector ({user?.name || 'Partner'})</span>
+              <span className="text-2xs text-amber-700 block">
+                Warehouse Intake confirmation is authorized for demo convenience.
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/login?role=store_staff')}
+            className="text-2xs font-bold bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-xl transition-all cursor-pointer shrink-0"
+          >
+            Switch to Staff
+          </button>
+        </div>
+      )}
 
       {liveAlert && (
         <div className="p-3 bg-emerald-900 text-white border border-emerald-700 rounded-2xl text-xs font-bold flex items-center justify-between shadow-md animate-bounce">

@@ -155,16 +155,38 @@ const cancelPickupRequest = async (pickupId, userId, userRole) => {
         throw new ApiError_1.default(400, `Cannot cancel pickup once collector has arrived (Current status: ${pickup.status})`);
     }
     const previousStatus = pickup.status;
+    const assignedCollectorId = pickup.collectorId ? pickup.collectorId.toString() : null;
+    const currentOfferCollectorId = pickup.currentOfferCollectorId ? pickup.currentOfferCollectorId.toString() : null;
     pickup.status = 'cancelled';
     pickup.currentOfferCollectorId = null;
     pickup.offerExpiresAt = null;
     await pickup.save();
     try {
         const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
-        sockets.emitStatusChanged(pickup._id.toString(), {
+        const { getIO } = await Promise.resolve().then(() => __importStar(require('../sockets')));
+        const io = getIO();
+        const payload = {
+            pickupId: pickup._id.toString(),
+            requestId: pickup._id.toString(),
             newStatus: 'cancelled',
+            status: 'cancelled',
             previousStatus,
-        });
+        };
+        // 1. Emit to pickup room
+        sockets.emitStatusChanged(pickup._id.toString(), payload);
+        io.to(`pickup:${pickup._id.toString()}`).emit('pickup.cancelled', payload);
+        // 2. Broadcast globally so all collectors viewing incoming offers drop it immediately
+        io.emit('pickup.cancelled', payload);
+        io.emit('pickup.status.changed', payload);
+        // 3. Emit directly to the assigned or targeted collector's private user room
+        if (assignedCollectorId) {
+            io.to(`user:${assignedCollectorId}`).emit('pickup.cancelled', payload);
+            io.to(`user:${assignedCollectorId}`).emit('pickup.status.changed', payload);
+        }
+        if (currentOfferCollectorId && currentOfferCollectorId !== assignedCollectorId) {
+            io.to(`user:${currentOfferCollectorId}`).emit('pickup.cancelled', payload);
+            io.to(`user:${currentOfferCollectorId}`).emit('pickup.status.changed', payload);
+        }
     }
     catch (err) {
         // Sockets emission non-blocking

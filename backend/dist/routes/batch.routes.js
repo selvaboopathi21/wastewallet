@@ -15,9 +15,9 @@ router.post('/', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.COLLEC
 // 2. View batches (Collector sees their own, Store Staff & Admin see all)
 router.get('/', auth_1.default, batch_controller_1.listBatches);
 // 3. Store Staff scans QR and records received weight (calculates loss %)
-router.post('/:qrCode/receive', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.STORE_STAFF, constants_1.ROLES.ADMIN), batch_controller_1.receiveBatch);
+router.post('/:qrCode/receive', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.STORE_STAFF, constants_1.ROLES.ADMIN, constants_1.ROLES.COLLECTOR), batch_controller_1.receiveBatch);
 // 4. Store Staff sorts materials and system automatically routes to Buyers
-router.post('/:id/sort', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.STORE_STAFF, constants_1.ROLES.ADMIN), batch_controller_1.sortBatch);
+router.post('/:id/sort', auth_1.default, (0, role_1.restrictTo)(constants_1.ROLES.STORE_STAFF, constants_1.ROLES.ADMIN, constants_1.ROLES.COLLECTOR), batch_controller_1.sortBatch);
 // 5. Traceability: View specific batch details, line items, and buyers
 router.get('/:id', auth_1.default, batch_controller_1.getBatch);
 exports.default = router;

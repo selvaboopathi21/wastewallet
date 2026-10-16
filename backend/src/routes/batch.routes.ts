@@ -23,7 +23,7 @@ router.get('/', authenticate, listBatches);
 router.post(
   '/:qrCode/receive',
   authenticate,
-  restrictTo(ROLES.STORE_STAFF, ROLES.ADMIN),
+  restrictTo(ROLES.STORE_STAFF, ROLES.ADMIN, ROLES.COLLECTOR),
   receiveBatch
 );
 
@@ -31,7 +31,7 @@ router.post(
 router.post(
   '/:id/sort',
   authenticate,
-  restrictTo(ROLES.STORE_STAFF, ROLES.ADMIN),
+  restrictTo(ROLES.STORE_STAFF, ROLES.ADMIN, ROLES.COLLECTOR),
   sortBatch
 );
 

@@ -342,6 +342,23 @@ export const transitionPickupStatus = async (
   try {
     const sockets = (await import('../sockets')).default;
     sockets.emitStatusChanged(pickupId, { newStatus, previousStatus: oldStatus });
+    if (newStatus === 'cancelled') {
+      const { getIO } = await import('../sockets');
+      const io = getIO();
+      const payload = {
+        pickupId: pickup._id.toString(),
+        requestId: pickup._id.toString(),
+        newStatus: 'cancelled',
+        status: 'cancelled',
+        previousStatus: oldStatus,
+      };
+      io.emit('pickup.cancelled', payload);
+      io.emit('pickup.status.changed', payload);
+      if (pickup.collectorId) {
+        io.to(`user:${pickup.collectorId.toString()}`).emit('pickup.cancelled', payload);
+        io.to(`user:${pickup.collectorId.toString()}`).emit('pickup.status.changed', payload);
+      }
+    }
   } catch (err: any) {
     logger.warn(`Could not emit Socket event pickup.status.changed: ${err.message}`);
   }

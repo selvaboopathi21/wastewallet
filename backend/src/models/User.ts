@@ -78,6 +78,10 @@ const userSchema = new Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    isRejected: {
+      type: Boolean,
+      default: false,
+    },
     isOnline: {
       type: Boolean,
       default: false,

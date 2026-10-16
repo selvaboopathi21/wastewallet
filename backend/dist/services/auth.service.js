@@ -37,8 +37,8 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, email, address, langu
             if (activeZone)
                 defaultZoneId = activeZone._id;
         }
-        // Auto-approve registered users for instant live evaluation
-        const isApproved = true;
+        // New users: collectors need admin approval; customers are auto‑approved
+        const isApproved = userRole === 'collector' ? false : true;
         user = await User_1.default.create({
             phone,
             email: email && email.trim() ? email.trim().toLowerCase() : '',
@@ -47,7 +47,8 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, email, address, langu
             address: address && address.trim() ? address.trim() : '',
             language: language || 'en',
             isApproved,
-            isOnline: true,
+            // Collectors are offline until approved
+            isOnline: userRole === 'collector' ? false : true,
             zoneId: defaultZoneId,
         });
         isNewUser = true;
@@ -70,8 +71,8 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, email, address, langu
         if (role && Object.values(constants_1.ROLES).includes(role) && user.role !== role) {
             user.role = role;
             if (role === 'collector') {
-                user.isApproved = true;
-                user.isOnline = true;
+                user.isApproved = false;
+                user.isOnline = false;
             }
             modified = true;
         }
@@ -103,6 +104,7 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, email, address, langu
             phone: user.phone,
             role: user.role,
             isApproved: user.isApproved,
+            isRejected: user.isRejected,
             isOnline: user.isOnline,
             rating: user.rating,
             language: user.language,
@@ -187,6 +189,7 @@ const googleAuthLogin = async ({ email, phone, name, googleId, role, address, })
             phone: user.phone,
             role: user.role,
             isApproved: user.isApproved,
+            isRejected: user.isRejected,
             isOnline: user.isOnline,
             rating: user.rating,
             language: user.language,
@@ -227,8 +230,8 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
             existing.email = cleanEmail || existing.email;
             existing.password = hashedPassword;
             existing.role = 'collector';
-            existing.isApproved = true;
-            existing.isOnline = true;
+            existing.isApproved = false;
+            existing.isOnline = false;
             if (address)
                 existing.address = address.trim();
             if (selectedZoneId)
@@ -245,6 +248,7 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
                     phone: existing.phone,
                     role: existing.role,
                     isApproved: existing.isApproved,
+                    isRejected: existing.isRejected,
                     isOnline: existing.isOnline,
                     rating: existing.rating,
                     language: existing.language || 'en',
@@ -273,8 +277,8 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
             if (selectedZoneId)
                 existing.zoneId = selectedZoneId;
             if (existing.role === 'collector') {
-                existing.isApproved = true;
-                existing.isOnline = true;
+                existing.isApproved = false;
+                existing.isOnline = false;
             }
             await existing.save();
             const token = jsonwebtoken_1.default.sign({ id: existing._id.toString(), role: existing.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
@@ -300,9 +304,9 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
     const salt = await bcryptjs_1.default.genSalt(10);
     const hashedPassword = await bcryptjs_1.default.hash(password, salt);
     const userRole = role && Object.values(constants_1.ROLES).includes(role) ? role : 'customer';
-    // Real users registering as collectors are approved and active immediately
-    const isApproved = true;
-    const isOnline = userRole === 'collector' ? true : false;
+    // New collectors start as pending approval; customers are auto‑approved
+    const isApproved = userRole === 'collector' ? false : true;
+    const isOnline = userRole === 'collector' ? false : false;
     const user = await User_1.default.create({
         name: name?.trim() || (userRole === 'collector' ? 'Partner Collector' : 'Customer'),
         email: cleanEmail,
@@ -326,6 +330,7 @@ const registerWithPassword = async ({ name, email, phone, password, role, addres
             phone: user.phone,
             role: user.role,
             isApproved: user.isApproved,
+            isRejected: user.isRejected,
             isOnline: user.isOnline,
             rating: user.rating,
             language: user.language,
@@ -371,17 +376,12 @@ const loginWithPassword = async ({ identifier, password, targetRole, }) => {
     if (user.isBlocked) {
         throw new ApiError_1.default(403, 'Your account is suspended. Please contact customer support.');
     }
-    // If a user registered as customer is logging into the Collector portal, upgrade/switch role
-    if (targetRole && targetRole === 'collector' && user.role === 'customer') {
-        user.role = 'collector';
-        user.isApproved = true;
-        user.isOnline = true;
-        await user.save();
-    }
-    else if (user.role === 'collector' && !user.isApproved) {
-        user.isApproved = true;
-        user.isOnline = true;
-        await user.save();
+    // If logging into Collector portal, verify user is an active/permitted collector
+    if (targetRole && targetRole === 'collector' && user.role !== 'collector') {
+        if (user.isRejected) {
+            throw new ApiError_1.default(403, 'Your Collector partner application was rejected by Admin. You cannot access the Collector portal.');
+        }
+        throw new ApiError_1.default(403, 'Your account is registered as a Customer and has not been approved as a Collector. Please sign in as a Customer.');
     }
     const token = jsonwebtoken_1.default.sign({ id: user._id.toString(), role: user.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
     return {
@@ -394,6 +394,7 @@ const loginWithPassword = async ({ identifier, password, targetRole, }) => {
             phone: user.phone,
             role: user.role,
             isApproved: user.isApproved,
+            isRejected: user.isRejected,
             isOnline: user.isOnline,
             rating: user.rating,
             language: user.language,
@@ -417,6 +418,13 @@ const updateUserProfile = async (userId, data) => {
         user.language = data.language;
     if (data.zoneId)
         user.zoneId = data.zoneId;
+    if (data.role && ['customer', 'collector'].includes(data.role)) {
+        user.role = data.role;
+        if (data.role === 'customer') {
+            user.isApproved = true;
+            user.isRejected = false;
+        }
+    }
     await user.save();
     return user;
 };
@@ -494,6 +502,7 @@ const resetPassword = async ({ phone, otp, newPassword, }) => {
             phone: user.phone,
             role: user.role,
             isApproved: user.isApproved,
+            isRejected: user.isRejected,
             isOnline: user.isOnline,
             rating: user.rating,
             language: user.language,

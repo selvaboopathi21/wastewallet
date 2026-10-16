@@ -136,20 +136,24 @@ exports.approveCollector = (0, asyncHandler_1.default)(async (req, res) => {
     const collector = await admin_service_1.default.updateCollectorApproval(id, Boolean(isApproved));
     res.status(200).json({
         success: true,
-        message: `Collector ${collector.name || collector.phone} approval updated to ${isApproved}`,
+        message: isApproved
+            ? `Collector ${collector.name || collector.phone} has been ACCEPTED as an approved Collector partner.`
+            : `Application for ${collector.name || collector.phone} has been REJECTED. Partner access locked.`,
         data: { collector },
     });
 });
-// GET /api/v1/admin/collectors (List all collectors with approval status)
+// GET /api/v1/admin/collectors (List all collectors and customers with approval status)
 exports.getCollectorsList = (0, asyncHandler_1.default)(async (req, res) => {
     const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
-    const collectors = await User.find({ role: 'collector' })
-        .select('name phone email address zoneId rating storeName isApproved isOnline createdAt')
+    const role = req.query.role;
+    const query = role && role !== 'all' ? { role } : { role: { $in: ['collector', 'customer'] } };
+    const collectors = await User.find(query)
+        .select('name phone email address zoneId rating storeName isApproved isRejected isOnline role createdAt')
         .populate('zoneId', 'name')
         .sort({ createdAt: -1 });
     res.status(200).json({
         success: true,
-        message: `Retrieved ${collectors.length} collectors`,
+        message: `Retrieved ${collectors.length} users`,
         data: { collectors },
     });
 });

@@ -313,21 +313,24 @@ exports.respondSeparatePrice = (0, asyncHandler_1.default)(async (req, res) => {
         data: { pickup: updatedPickup },
     });
 });
-// POST /api/v1/collector/activate (Auto-approve and activate collector partner)
+// POST /api/v1/collector/activate (Check approval status of collector)
 exports.activateCollector = (0, asyncHandler_1.default)(async (req, res) => {
     const collectorId = req.user._id;
     const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
     const user = await User.findById(collectorId);
     if (!user)
         throw new ApiError_1.default(404, 'Collector account not found');
-    user.role = 'collector';
-    user.isApproved = true;
-    user.isOnline = true;
-    await user.save();
+    if (!user.isApproved) {
+        return res.status(200).json({
+            success: false,
+            message: 'Account is pending review and approval by Admin.',
+            data: { user, isApproved: false },
+        });
+    }
     res.status(200).json({
         success: true,
-        message: 'Collector partner account verified and activated successfully!',
-        data: { user },
+        message: 'Collector partner account is approved and active!',
+        data: { user, isApproved: true },
     });
 });
 exports.default = {

@@ -177,18 +177,29 @@ export const CollectorJobCard = () => {
     const handleStatusChanged = (data) => {
       const incomingId = String(data?.requestId || data?.pickupId || '');
       if (!incomingId || incomingId === String(pickupId)) {
-        setPickup((prev) => (prev ? { ...prev, status: data.newStatus } : prev));
+        const nextStatus = data.newStatus || data.status;
+        setPickup((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      }
+    };
+
+    // Customer cancelled
+    const handlePickupCancelled = (data) => {
+      const incomingId = String(data?.requestId || data?.pickupId || '');
+      if (!incomingId || incomingId === String(pickupId)) {
+        setPickup((prev) => (prev ? { ...prev, status: 'cancelled' } : prev));
       }
     };
 
     socket.on('pricing.separate.requested', handleSeparateRequested);
     socket.on('pickup.confirmed', handlePickupConfirmed);
     socket.on('pickup.status.changed', handleStatusChanged);
+    socket.on('pickup.cancelled', handlePickupCancelled);
 
     return () => {
       socket.off('pricing.separate.requested', handleSeparateRequested);
       socket.off('pickup.confirmed', handlePickupConfirmed);
       socket.off('pickup.status.changed', handleStatusChanged);
+      socket.off('pickup.cancelled', handlePickupCancelled);
     };
   }, [socket, pickupId]);
 
@@ -395,10 +406,39 @@ export const CollectorJobCard = () => {
           </div>
         </div>
 
-        <span className="text-2xs font-bold uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-200">
+        <span
+          className={`text-2xs font-bold uppercase px-2.5 py-1 rounded-full border ${
+            pickup.status === 'cancelled'
+              ? 'bg-rose-100 text-rose-800 border-rose-200'
+              : 'bg-emerald-100 text-emerald-900 border-emerald-200'
+          }`}
+        >
           {pickup.status.replace('_', ' ')}
         </span>
       </div>
+
+      {/* Customer Cancelled Notice Banner */}
+      {pickup.status === 'cancelled' && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-3xl p-6 shadow-sm space-y-4 text-center">
+          <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-rose-950 uppercase tracking-wide">
+              Pickup Cancelled by Customer
+            </h3>
+            <p className="text-xs text-rose-700 mt-1">
+              The customer has cancelled this pickup request. No further action or visits are needed.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/collector')}
+            className="w-full bg-slate-900 hover:bg-black text-white font-bold py-3 px-4 rounded-2xl text-xs cursor-pointer shadow-sm transition-all"
+          >
+            ← Return to Collector Dashboard
+          </button>
+        </div>
+      )}
 
       {/* Customer Info & Contact Card */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-3">
@@ -434,7 +474,7 @@ export const CollectorJobCard = () => {
       </div>
 
       {/* Incoming 'Customer Requested Separate Price' Alert */}
-      {incomingSeparateRequest && (
+      {incomingSeparateRequest && pickup.status !== 'cancelled' && (
         <div className="bg-amber-50 border-2 border-amber-400 rounded-3xl p-4 shadow-md space-y-3 animate-pulse">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />

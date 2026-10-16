@@ -36,6 +36,7 @@ export interface IUser extends Document {
   language: Language;
   // Collector-specific fields
   isApproved?: boolean;
+  isRejected?: boolean;
   isOnline?: boolean;
   acceptanceRate?: number;
   storeName?: string;

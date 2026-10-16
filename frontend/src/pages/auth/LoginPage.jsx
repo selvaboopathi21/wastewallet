@@ -296,8 +296,6 @@ export const LoginPage = () => {
       // Synchronize role if logging into Collector portal
       if (role === 'collector' && user.role !== 'collector') {
         user.role = 'collector';
-        user.isApproved = true;
-        user.isOnline = true;
         localStorage.setItem('user', JSON.stringify(user));
       }
 
@@ -360,8 +358,6 @@ export const LoginPage = () => {
 
       if (role === 'collector') {
         user.role = 'collector';
-        user.isApproved = true;
-        user.isOnline = true;
         localStorage.setItem('user', JSON.stringify(user));
       }
 
@@ -383,8 +379,6 @@ export const LoginPage = () => {
           });
           if (role === 'collector') {
             loggedInUser.role = 'collector';
-            loggedInUser.isApproved = true;
-            loggedInUser.isOnline = true;
             localStorage.setItem('user', JSON.stringify(loggedInUser));
           }
           const destination = {
@@ -523,8 +517,6 @@ export const LoginPage = () => {
 
       if (role === 'collector') {
         user.role = 'collector';
-        user.isApproved = true;
-        user.isOnline = true;
         localStorage.setItem('user', JSON.stringify(user));
       }
 

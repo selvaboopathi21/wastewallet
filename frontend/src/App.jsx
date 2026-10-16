@@ -103,7 +103,7 @@ export const App = () => {
             </Route>
 
             {/* Store / Warehouse Reception Staff */}
-            <Route element={<ProtectedRoute allowedRoles={['store_staff', 'admin']} />}>
+            <Route element={<ProtectedRoute allowedRoles={['store_staff', 'admin', 'collector']} />}>
               <Route element={<StoreLayout />}>
                 <Route path="/store" element={<StoreIntakePage />} />
                 <Route path="/store/sort" element={<StoreSortingPage />} />

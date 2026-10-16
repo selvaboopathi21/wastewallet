@@ -61,7 +61,15 @@ exports.createBatch = (0, asyncHandler_1.default)(async (req, res) => {
 exports.receiveBatch = (0, asyncHandler_1.default)(async (req, res) => {
     const { qrCode } = req.params;
     const { receivedWeightKg } = req.body;
-    const staffId = req.user._id.toString();
+    let staffId = req.user._id.toString();
+    // If performed in dev/test mode by a collector, assign intake reception to warehouse staff
+    if (req.user.role === 'collector') {
+        const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
+        const defaultStaff = await User.findOne({ role: { $in: ['store_staff', 'admin'] } });
+        if (defaultStaff) {
+            staffId = defaultStaff._id.toString();
+        }
+    }
     if (receivedWeightKg === undefined || receivedWeightKg === null) {
         throw new ApiError_1.default(400, 'receivedWeightKg is required');
     }

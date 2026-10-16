@@ -90,11 +90,9 @@ export const AuthProvider = ({ children }) => {
         const newToken = payload.token;
         const newUser = { ...payload.user };
 
-        // If user logged into Collector portal, ensure collector role and active status
+        // If user logged into Collector portal, update role if needed
         if (targetRole === 'collector' && newUser.role !== 'collector') {
           newUser.role = 'collector';
-          newUser.isApproved = true;
-          newUser.isOnline = true;
         }
 
         localStorage.setItem('token', newToken);
@@ -119,8 +117,6 @@ export const AuthProvider = ({ children }) => {
             if (cached.phone === identifier || cached.email === identifier || cached.name === identifier) {
               if (targetRole && cached.role !== targetRole) {
                 cached.role = targetRole;
-                cached.isApproved = true;
-                cached.isOnline = true;
               }
               const cachedToken = localStorage.getItem('token') || 'ww_token_' + Date.now();
               setToken(cachedToken);
@@ -140,8 +136,8 @@ export const AuthProvider = ({ children }) => {
           phone: identifier,
           role: resolvedRole,
           address: 'Anna Nagar, Chennai',
-          isApproved: true,
-          isOnline: true,
+          isApproved: resolvedRole === 'collector' ? false : true,
+          isOnline: false,
           rating: { avg: 5.0, count: 1 },
           language: 'en',
         };
@@ -166,11 +162,9 @@ export const AuthProvider = ({ children }) => {
         const newToken = payload.token;
         const newUser = { ...payload.user };
 
-        // Ensure newly registered collector has active and approved properties
+        // Respect role without overriding approval status
         if (role === 'collector') {
           newUser.role = 'collector';
-          newUser.isApproved = true;
-          newUser.isOnline = true;
         }
 
         localStorage.setItem('token', newToken);
@@ -222,9 +216,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Update profile
-  const updateProfile = async ({ name, email, address, language, zoneId }) => {
+  const updateProfile = async ({ name, email, address, language, zoneId, role }) => {
     try {
-      const res = await api.patch('/auth/profile', { name, email, address, language, zoneId });
+      const res = await api.patch('/auth/profile', { name, email, address, language, zoneId, role });
       const updated = res?.data?.data?.user || res?.data?.user || res?.data;
       if (updated) {
         localStorage.setItem('user', JSON.stringify(updated));
@@ -241,6 +235,7 @@ export const AuthProvider = ({ children }) => {
         ...(address ? { address } : {}),
         ...(language ? { language } : {}),
         ...(zoneId ? { zoneId } : {}),
+        ...(role ? { role } : {}),
       };
       localStorage.setItem('user', JSON.stringify(updated));
       setUser(updated);
