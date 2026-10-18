@@ -154,6 +154,34 @@ const FALLBACK_ACCOUNTS = {
     },
     destination: '/admin',
   },
+  '9444011111': {
+    token: 'ww_buyer_token_chennai_metal',
+    user: {
+      _id: '6aca7fcdde58f6a40cd62e91',
+      id: '6aca7fcdde58f6a40cd62e91',
+      name: 'Chennai Metal Recyclers Ltd (Murugesan)',
+      phone: '9444011111',
+      email: 'chennaimetalrecyclersltd@wastewallet.com',
+      role: 'buyer',
+      isApproved: true,
+      language: 'en',
+    },
+    destination: '/company',
+  },
+  '9444022222': {
+    token: 'ww_buyer_token_tn_plastic',
+    user: {
+      _id: '6aca7fcdde58f6a40cd62e92',
+      id: '6aca7fcdde58f6a40cd62e92',
+      name: 'Tamil Nadu Plastic Processing Plant (Kavitha)',
+      phone: '9444022222',
+      email: 'tamilnaduplasticprocessingplant@wastewallet.com',
+      role: 'buyer',
+      isApproved: true,
+      language: 'en',
+    },
+    destination: '/company',
+  },
 };
 
 const AVAILABLE_ZONES = [
@@ -303,8 +331,9 @@ export const LoginPage = () => {
         customer: '/customer',
         collector: '/collector',
         store_staff: '/store',
+        buyer: '/company',
         admin: '/admin',
-      }[user.role] || (role === 'collector' ? '/collector' : '/customer');
+      }[user.role] || (role === 'collector' ? '/collector' : role === 'buyer' ? '/company' : '/customer');
 
       navigate(destination, { replace: true });
     } catch (err) {
@@ -365,8 +394,9 @@ export const LoginPage = () => {
         customer: '/customer',
         collector: '/collector',
         store_staff: '/store',
+        buyer: '/company',
         admin: '/admin',
-      }[user.role] || (role === 'collector' ? '/collector' : '/customer');
+      }[user.role] || (role === 'collector' ? '/collector' : role === 'buyer' ? '/company' : '/customer');
 
       navigate(destination, { replace: true });
     } catch (err) {
@@ -524,8 +554,9 @@ export const LoginPage = () => {
         customer: '/customer',
         collector: '/collector',
         store_staff: '/store',
+        buyer: '/company',
         admin: '/admin',
-      }[user.role] || (role === 'collector' ? '/collector' : '/customer');
+      }[user.role] || (role === 'collector' ? '/collector' : role === 'buyer' ? '/company' : '/customer');
 
       navigate(destination, { replace: true });
     } catch (err) {
@@ -1409,6 +1440,43 @@ export const LoginPage = () => {
                     >
                       ⚡ Fast Login
                     </button>
+                  </div>
+
+                  {/* Tie-Up Recycling Company */}
+                  <div className="col-span-2 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-teal-950/60 border border-emerald-500/30 p-2.5 rounded-2xl flex flex-col justify-between hover:border-emerald-500/60 transition-colors">
+                    <div>
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+                          <span>🏢</span> <span>Tie-Up Recycling Company</span>
+                        </div>
+                        <span className="text-3xs bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-mono shrink-0">
+                          Licensed Recycler
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-1 mt-1 text-3xs">
+                        <span className="font-mono text-slate-400">Pass: password123</span>
+                        <span className="text-slate-500 text-3xs">Iron • Plastic • E-Waste</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDirectDemoLogin('buyer', '9444011111', 'Chennai Metal Recyclers Ltd')}
+                        className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-3xs transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 shadow-xs"
+                        title="Fast Login as Chennai Metal Recyclers Ltd (9444011111)"
+                      >
+                        ⚡ Chennai Metal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDirectDemoLogin('buyer', '9444022222', 'Tamil Nadu Plastic Processing Plant')}
+                        className="w-full py-1.5 bg-teal-500/20 hover:bg-teal-500 text-teal-300 hover:text-slate-950 font-black rounded-xl text-3xs transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 border border-teal-500/30"
+                        title="Fast Login as Tamil Nadu Plastic Processing Plant (9444022222)"
+                      >
+                        ⚡ TN Plastic
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

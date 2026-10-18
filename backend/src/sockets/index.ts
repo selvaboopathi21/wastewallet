@@ -176,6 +176,33 @@ export const emitBatchReceived = (batch: any) => {
   logger.info(`📡 Emitted "batch.received" for batch ${batch?.qrCode}`);
 };
 
+/**
+ * 11. Emits new scrap dispatch consignment created to tie-up company and store staff
+ */
+export const emitCompanyDispatchCreated = (dispatch: any) => {
+  if (!io) return;
+  const companyId = dispatch?.companyId?._id || dispatch?.companyId;
+  if (companyId) {
+    io.to(`company:${companyId}`).to(`user:${companyId}`).emit('company.dispatch.created', { dispatch });
+  }
+  io.emit('company.dispatch.created', { dispatch });
+  logger.info(`📡 Emitted "company.dispatch.created" for code ${dispatch?.dispatchCode} to company ${companyId}`);
+};
+
+/**
+ * 12. Emits company receipt confirmation & message back to store staff and admin
+ */
+export const emitCompanyDispatchReceived = (dispatch: any, notification: any) => {
+  if (!io) return;
+  const staffId = dispatch?.storeStaffId?._id || dispatch?.storeStaffId;
+  if (staffId) {
+    io.to(`user:${staffId}`).emit('company.dispatch.received', { dispatch, notification });
+  }
+  // Also broadcast to staff channel and global
+  io.emit('company.dispatch.received', { dispatch, notification });
+  logger.info(`📡 Emitted "company.dispatch.received" for dispatch ${dispatch?.dispatchCode} to staff: ${notification?.message}`);
+};
+
 export default {
   initSocket,
   getIO,
@@ -189,6 +216,8 @@ export default {
   emitOtpSent,
   emitBatchCreated,
   emitBatchReceived,
+  emitCompanyDispatchCreated,
+  emitCompanyDispatchReceived,
 };
 
 

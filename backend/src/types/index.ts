@@ -243,3 +243,46 @@ export interface IRating extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// 19. Company Dispatch Types & Interface
+export type CompanyDispatchStatus = 'dispatched' | 'received' | 'rejected';
+
+export interface ICompanyDispatch extends Document {
+  _id: Types.ObjectId;
+  dispatchCode: string;
+  storeStaffId: Types.ObjectId;
+  companyId: Types.ObjectId;
+  companyName: string;
+  materialType: ScrapCategory;
+  weightKg: number;
+  vehicleNumber?: string;
+  dispatchNotes?: string;
+  status: CompanyDispatchStatus;
+  dispatchedAt: Date;
+  receivedWeightKg?: number | null;
+  receivedAt?: Date | null;
+  receivedNotes?: string;
+  receiptMessage?: string;
+  batchId?: Types.ObjectId | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 20. Staff Notification Types & Interface
+export type StaffNotificationType = 'company_receipt' | 'batch_deposit' | 'alert';
+
+export interface IStaffNotification extends Document {
+  _id: Types.ObjectId;
+  type: StaffNotificationType;
+  title: string;
+  message: string;
+  companyId?: Types.ObjectId | null;
+  companyName?: string;
+  dispatchId?: Types.ObjectId | null;
+  materialType?: ScrapCategory | string;
+  weightKg?: number;
+  isRead: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+

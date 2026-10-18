@@ -29,6 +29,8 @@ import AdminRatesPage from './pages/admin/AdminRatesPage';
 import AdminFraudPage from './pages/admin/AdminFraudPage';
 import StoreIntakePage from './pages/store/StoreIntakePage';
 import StoreSortingPage from './pages/store/StoreSortingPage';
+import StoreHandoverPage from './pages/store/StoreHandoverPage';
+import CompanyPortalPage from './pages/company/CompanyPortalPage';
 
 // Helper component: Root index router based on authentication state
 const RootRedirect = () => {
@@ -53,6 +55,7 @@ const RootRedirect = () => {
     customer: '/customer',
     collector: '/collector',
     store_staff: '/store',
+    buyer: '/company',
     admin: '/admin',
   };
 
@@ -68,6 +71,10 @@ export const App = () => {
             {/* Public Landing & Authentication Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
+
+            {/* Tie-Up Recycling Company Portal Routes */}
+            <Route path="/company" element={<CompanyPortalPage />} />
+            <Route path="/company/:id" element={<CompanyPortalPage />} />
 
             {/* Customer Routes (Guarded for customer role) */}
             <Route element={<ProtectedRoute allowedRoles={['customer']} />}>
@@ -107,6 +114,7 @@ export const App = () => {
               <Route element={<StoreLayout />}>
                 <Route path="/store" element={<StoreIntakePage />} />
                 <Route path="/store/sort" element={<StoreSortingPage />} />
+                <Route path="/store/handover" element={<StoreHandoverPage />} />
                 <Route path="/store/batches/:id/sort" element={<StoreSortingPage />} />
                 <Route path="/store/batches" element={<StoreIntakePage />} />
               </Route>

@@ -442,6 +442,7 @@ export const LandingPage = () => {
                 <li><Link to="/login?role=customer" className="hover:text-emerald-400 flex items-center gap-1"><span>👤</span> Household Customer Login</Link></li>
                 <li><Link to="/login?role=collector" className="hover:text-amber-400 flex items-center gap-1"><span>🚚</span> Collector Partner Portal</Link></li>
                 <li><Link to="/login?role=store_staff" className="hover:text-blue-400 flex items-center gap-1"><span>🏬</span> Warehouse Staff Depot</Link></li>
+                <li><Link to="/company" className="hover:text-teal-400 flex items-center gap-1"><span>🏢</span> Tie-Up Recycling Plant Portal</Link></li>
                 <li><Link to="/login?role=admin" className="hover:text-rose-400 flex items-center gap-1"><span>👑</span> Admin Operations HQ</Link></li>
               </ul>
             </div>

@@ -22,41 +22,62 @@ import api from '../../api/axios';
 
 const MATERIAL_STREAMS = [
   {
+    type: 'iron',
+    name: 'Scrap Iron & Structural Steel',
+    expectedBuyer: 'Chennai Metal Recyclers Ltd',
+    isSpecialHandling: false,
+    icon: '🔩',
+  },
+  {
+    type: 'plastic',
+    name: 'Rigid & Flexible Plastics',
+    expectedBuyer: 'Tamil Nadu Plastic Processing Plant',
+    isSpecialHandling: false,
+    icon: '🧴',
+  },
+  {
     type: 'copper_wire',
     name: 'Copper & Heavy Wiring',
-    expectedBuyer: 'Metro Smelters Ltd.',
+    expectedBuyer: 'Apex Copper Recovery Unit',
     isSpecialHandling: false,
     icon: '🔌',
   },
   {
-    type: 'battery',
-    name: 'Lead-Acid & Inverter Batteries',
-    expectedBuyer: 'Tamil Nadu Lead Recyclers',
-    isSpecialHandling: true,
-    warning: 'Hazardous Materials Handling Protocol Required',
-    icon: '🔋',
-  },
-  {
     type: 'ewaste',
     name: 'Electronic PCBs & Components',
-    expectedBuyer: 'Green Tech Recyclers',
+    expectedBuyer: 'Eco-Green E-Waste Recyclers',
     isSpecialHandling: true,
     warning: 'Toxic Heavy Metals Protocol Required',
     icon: '💻',
   },
   {
-    type: 'plastic',
-    name: 'Rigid & Flexible Plastics',
-    expectedBuyer: 'Adyar Polymers',
-    isSpecialHandling: false,
-    icon: '🧴',
+    type: 'battery',
+    name: 'Lead-Acid & Inverter Batteries',
+    expectedBuyer: 'VoltPower Battery Safe Recovery',
+    isSpecialHandling: true,
+    warning: 'Hazardous Materials Handling Protocol Required',
+    icon: '🔋',
   },
   {
-    type: 'iron',
-    name: 'Scrap Iron & Structural Steel',
-    expectedBuyer: 'Metro Smelters Ltd.',
+    type: 'paper',
+    name: 'Cardboard & Paper Pulp',
+    expectedBuyer: 'South Paper Mill Reclaimers',
     isSpecialHandling: false,
-    icon: '🔩',
+    icon: '📰',
+  },
+  {
+    type: 'other',
+    name: 'Other Segregated Scrap',
+    expectedBuyer: 'Chennai Metal Recyclers Ltd',
+    isSpecialHandling: false,
+    icon: '📦',
+  },
+  {
+    type: 'mixed',
+    name: 'Mixed Domestic Scrap',
+    expectedBuyer: 'Tamil Nadu Plastic Processing Plant',
+    isSpecialHandling: false,
+    icon: '♻️',
   },
 ];
 
@@ -75,11 +96,14 @@ export const StoreSortingPage = () => {
   const [isEditingSorted, setIsEditingSorted] = useState(false);
 
   const [weights, setWeights] = useState({
-    copper_wire: '',
-    battery: '',
-    ewaste: '',
-    plastic: '',
     iron: '',
+    plastic: '',
+    copper_wire: '',
+    ewaste: '',
+    battery: '',
+    paper: '',
+    other: '',
+    mixed: '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -146,7 +170,16 @@ export const StoreSortingPage = () => {
 
       // Pre-fill weights if already sorted
       if (existingSorted.length > 0) {
-        const prefill = { copper_wire: '', battery: '', ewaste: '', plastic: '', iron: '' };
+        const prefill = {
+          iron: '',
+          plastic: '',
+          copper_wire: '',
+          ewaste: '',
+          battery: '',
+          paper: '',
+          other: '',
+          mixed: '',
+        };
         existingSorted.forEach((sm) => {
           if (prefill[sm.materialType] !== undefined) {
             prefill[sm.materialType] = sm.weightKg?.toString() || '';
@@ -155,7 +188,16 @@ export const StoreSortingPage = () => {
         setWeights(prefill);
       } else {
         // Clear weights for new un-sorted batch
-        setWeights({ copper_wire: '', battery: '', ewaste: '', plastic: '', iron: '' });
+        setWeights({
+          iron: '',
+          plastic: '',
+          copper_wire: '',
+          ewaste: '',
+          battery: '',
+          paper: '',
+          other: '',
+          mixed: '',
+        });
       }
 
       setRoutingResults(null);
@@ -177,12 +219,21 @@ export const StoreSortingPage = () => {
   // Auto-fill weights from Doorstep Collected Items
   const handleAutoFillFromDoorstep = () => {
     if (!pickupItems || pickupItems.length === 0) return;
-    const newWeights = { copper_wire: '', battery: '', ewaste: '', plastic: '', iron: '' };
+    const newWeights = {
+      iron: '',
+      plastic: '',
+      copper_wire: '',
+      ewaste: '',
+      battery: '',
+      paper: '',
+      other: '',
+      mixed: '',
+    };
     pickupItems.forEach((item) => {
       const cat = item.category || item.materialType;
       if (newWeights[cat] !== undefined) {
         const cur = parseFloat(newWeights[cat]) || 0;
-        newWeights[cat] = (cur + (item.weightKg || 0)).toString();
+        newWeights[cat] = (cur + (item.weightKg || 0)).toFixed(1);
       }
     });
     setWeights(newWeights);
@@ -644,15 +695,22 @@ export const StoreSortingPage = () => {
             ))}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Link
+              to="/store/handover"
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 px-3 rounded-xl text-xs cursor-pointer text-center flex items-center justify-center gap-1.5 shadow-sm active:scale-98 transition-all"
+            >
+              <Truck className="w-4 h-4 text-emerald-200" />
+              <span>Handover Stock to Tie-Up Company ➔</span>
+            </Link>
             <button
               onClick={() => {
                 setRoutingResults(null);
                 fetchBatches();
               }}
-              className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-3 rounded-xl text-xs cursor-pointer text-center"
+              className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs cursor-pointer text-center"
             >
-              Sort Another Batch ➔
+              Sort Another Batch
             </button>
             <button
               onClick={() => {
@@ -715,6 +773,15 @@ export const StoreSortingPage = () => {
                   </div>
                 </div>
               ))}
+              <div className="pt-2">
+                <Link
+                  to="/store/handover"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-98"
+                >
+                  <Truck className="w-4 h-4 text-emerald-200" />
+                  <span>Handover Available Stock to Recycler Companies ➔</span>
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="p-4 bg-slate-50 rounded-2xl text-center text-xs text-slate-500">

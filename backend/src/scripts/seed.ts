@@ -158,10 +158,25 @@ export const seedDatabase = async () => {
   const customerPhone = '9876543210';
   let customer = await User.findOne({ phone: customerPhone });
   if (customer) {
-    customer.email = customer.email || 'customer@wastewallet.com';
+    customer.name = 'Ravi Kumar';
+    customer.email = 'customer@wastewallet.com';
+    customer.address = '12, 2nd Avenue, Anna Nagar East, Chennai 600102';
     customer.password = await bcrypt.hash('password123', 10);
     customer.isApproved = true;
     await customer.save();
+    logger.info(`ℹ️ Test Customer user updated to Ravi Kumar (${customerPhone})`);
+  } else {
+    customer = await User.create({
+      phone: customerPhone,
+      email: 'customer@wastewallet.com',
+      name: 'Ravi Kumar',
+      role: 'customer',
+      password: await bcrypt.hash('password123', 10),
+      isApproved: true,
+      address: '12, 2nd Avenue, Anna Nagar East, Chennai 600102',
+      language: 'en',
+    });
+    logger.info(`✅ Created Test Customer user: Ravi Kumar (${customerPhone})`);
   }
 
   // 7. Seed Recycler Buyers for Automatic Material Routing
@@ -206,17 +221,36 @@ export const seedDatabase = async () => {
   ];
 
   for (const b of defaultBuyers) {
-    await Buyer.findOneAndUpdate(
+    const buyerDoc = await Buyer.findOneAndUpdate(
       { name: b.name },
       { ...b, isActive: true },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
-  }
-  logger.info(`✅ Seeded ${defaultBuyers.length} specialist recycling buyers.`);
 
+    // Create a User login account for each Buyer company
+    const buyerEmail = `${b.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@wastewallet.com`;
+    const hashedBuyerPass = await bcrypt.hash('password123', 10);
+    await User.findOneAndUpdate(
+      { phone: b.contact.phone },
+      {
+        name: `${b.name} (${b.contact.person})`,
+        phone: b.contact.phone,
+        email: buyerEmail,
+        password: hashedBuyerPass,
+        role: 'buyer',
+        address: b.location,
+        isApproved: true,
+        isBlocked: false,
+        language: 'en',
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+  logger.info(`✅ Seeded ${defaultBuyers.length} specialist recycling buyers and corresponding login accounts.`);
   await mongoose.disconnect();
   logger.info('🎉 Seeding completed successfully and database disconnected!\n');
 };
+
 
 // Allow direct CLI execution: npx tsx src/scripts/seed.ts
 if (require.main === module) {

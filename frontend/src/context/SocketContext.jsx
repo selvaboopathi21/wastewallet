@@ -85,6 +85,9 @@ export const SocketProvider = ({ children }) => {
     socket,
     isConnected,
     joinPickup,
+    on: (...args) => socket?.on?.(...args),
+    off: (...args) => socket?.off?.(...args),
+    emit: (...args) => socket?.emit?.(...args),
   };
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
