@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   X,
   FileCheck2,
+  LogOut,
 } from 'lucide-react';
 import api from '../../api/axios';
 import { useSocket } from '../../context/SocketContext';
@@ -32,7 +33,7 @@ export const CompanyPortalPage = () => {
   const { id: urlCompanyId } = useParams();
   const navigate = useNavigate();
   const { socket } = useSocket();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   // All tie-up companies for selector
   const [allCompanies, setAllCompanies] = useState([]);
@@ -192,57 +193,91 @@ export const CompanyPortalPage = () => {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col selection:bg-emerald-500 selection:text-white">
       {/* Top Navbar */}
-      <header className="bg-slate-950/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/store/handover"
-              className="w-9 h-9 flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all cursor-pointer"
-              title="Return to Store Depot"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
+      <header className="bg-slate-950/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md px-4 py-2.5">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+          {/* Left: Back Navigation + Portal Identity */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {user?.role === 'store_staff' || user?.role === 'admin' ? (
+              <Link
+                to="/store/handover"
+                className="h-9 px-3 flex items-center justify-center gap-1.5 bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl border border-slate-750 transition-all cursor-pointer text-xs font-bold shrink-0 whitespace-nowrap shadow-2xs"
+                title="Return to Store Depot"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Store Depot</span>
+              </Link>
+            ) : (
+              <Link
+                to="/"
+                className="h-9 px-3 flex items-center justify-center gap-1.5 bg-slate-850 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl border border-slate-750 transition-all cursor-pointer text-xs font-bold shrink-0 whitespace-nowrap shadow-2xs"
+                title="Back to Product Website"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Home</span>
+              </Link>
+            )}
 
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-emerald-500/20">
-                <Building2 className="w-4 h-4" />
+            <div className="h-5 w-px bg-slate-800 hidden sm:block shrink-0 mx-0.5" />
+
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-emerald-500/20 shrink-0">
+                <Building2 className="w-4.5 h-4.5" />
               </div>
-              <div>
-                <h1 className="text-sm font-black leading-tight text-white flex items-center gap-1.5">
-                  <span>WasteWallet Recycler Portal</span>
-                  <span className="text-3xs bg-emerald-500/20 text-emerald-300 font-mono font-bold px-1.5 py-0.2 rounded border border-emerald-500/30">
+              <div className="min-w-0">
+                <h1 className="text-sm font-black leading-tight text-white flex items-center gap-1.5 flex-wrap">
+                  <span className="truncate">WasteWallet Recycler Portal</span>
+                  <span className="text-3xs bg-emerald-500/20 text-emerald-300 font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/30 whitespace-nowrap">
                     B2B Plant Gateway
                   </span>
                 </h1>
-                <p className="text-3xs text-slate-400">
+                <p className="text-3xs text-slate-400 truncate hidden md:block">
                   Tie-up recycling plant intake & scrap consignment receipt system
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Right: Quick Action Controls */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Refresh Button */}
             <button
               type="button"
               onClick={() => selectedCompanyId && fetchPortalData(selectedCompanyId)}
-              className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              className="h-9 px-3 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white bg-slate-850 hover:bg-slate-800 rounded-xl border border-slate-750 transition-colors cursor-pointer shrink-0 shadow-2xs active:scale-95 text-xs font-semibold whitespace-nowrap"
               title="Refresh Portal Data"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
             </button>
 
-            <Link
-              to="/login"
-              className="px-2.5 py-1.5 text-2xs font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-colors"
-            >
-              Switch Account
-            </Link>
+            {/* User Session Action (Log Out or Sign In) */}
+            {user ? (
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  navigate('/login');
+                }}
+                className="h-9 px-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-rose-300 hover:text-rose-100 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl border border-rose-500/30 transition-colors whitespace-nowrap shrink-0 shadow-2xs active:scale-95 cursor-pointer"
+                title="Sign out of Company Portal"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="h-9 px-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/25 rounded-xl border border-emerald-500/30 transition-colors whitespace-nowrap shrink-0 shadow-2xs active:scale-95"
+              >
+                <span>Sign In</span>
+              </Link>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-4xl w-full mx-auto p-4 space-y-4">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 space-y-4">
         {/* Company Switcher Bar */}
         <div className="bg-slate-850 p-3.5 rounded-3xl border border-slate-750 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -404,14 +439,33 @@ export const CompanyPortalPage = () => {
                   <span className="text-emerald-300 font-bold">
                     {companyData?.acceptedMaterials?.join(' or ') || 'iron/plastic'}
                   </span>
-                  ) to this company, the consignment will appear here with a "Confirm Received" button.
+                  ) to this company, the consignment will appear here for verification and receipt confirmation.
                 </p>
-                <Link
-                  to="/store/handover"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs cursor-pointer shadow-md shadow-emerald-500/20"
-                >
-                  <span>Go to Store Staff Depot to Dispatch Scrap ➔</span>
-                </Link>
+
+                {user?.role === 'store_staff' || user?.role === 'admin' ? (
+                  <div className="pt-2">
+                    <p className="text-3xs text-amber-300/80 mb-2 font-mono">
+                      🏬 You are viewing this portal in Store Staff Preview Mode
+                    </p>
+                    <Link
+                      to="/store/handover"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs cursor-pointer shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
+                    >
+                      <span>Dispatch Scrap from Store Staff Depot ➔</span>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="pt-2 flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => selectedCompanyId && fetchPortalData(selectedCompanyId)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold rounded-xl text-xs cursor-pointer border border-slate-700 active:scale-95 transition-all shadow-xs"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+                      <span>Check for Incoming Shipments</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3">

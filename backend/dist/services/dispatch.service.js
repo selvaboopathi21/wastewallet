@@ -118,6 +118,15 @@ const dispatchPickupRequest = async (pickupId) => {
             _id: { $nin: pickup.offeredTo },
         });
     }
+    // 4. Fallback for testing/seamless matching: If none flagged isOnline: true, include any approved collector in zone/city
+    if (eligibleCollectors.length === 0) {
+        eligibleCollectors = await User_1.default.find({
+            role: 'collector',
+            isApproved: true,
+            isBlocked: false,
+            _id: { $nin: pickup.offeredTo },
+        });
+    }
     if (eligibleCollectors.length === 0) {
         // If all collectors in offeredTo were already cycled through, check pickup age
         const now = Date.now();

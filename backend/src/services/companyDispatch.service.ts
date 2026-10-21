@@ -179,7 +179,59 @@ export const getTieUpCompanies = async (categoryFilter?: string) => {
     query.acceptedMaterials = categoryFilter;
   }
 
-  const buyers = await Buyer.find(query).sort({ name: 1 });
+  let buyers = await Buyer.find(query).sort({ name: 1 });
+
+  // Auto-seed default partner recycling companies if database collection is empty
+  if (buyers.length === 0) {
+    const defaultBuyers = [
+      {
+        name: 'Chennai Metal Recyclers Ltd',
+        acceptedMaterials: ['iron', 'other'],
+        contact: { phone: '9444011111', person: 'Murugesan' },
+        location: 'Ambattur Industrial Estate, Chennai',
+        isActive: true,
+      },
+      {
+        name: 'Tamil Nadu Plastic Processing Plant',
+        acceptedMaterials: ['plastic', 'mixed'],
+        contact: { phone: '9444022222', person: 'Kavitha' },
+        location: 'Guindy Industrial Estate, Chennai',
+        isActive: true,
+      },
+      {
+        name: 'Apex Copper Recovery Unit',
+        acceptedMaterials: ['copper_wire'],
+        contact: { phone: '9444033333', person: 'Suresh' },
+        location: 'Sriperumbudur, Tamil Nadu',
+        isActive: true,
+      },
+      {
+        name: 'Eco-Green E-Waste Recyclers',
+        acceptedMaterials: ['ewaste'],
+        contact: { phone: '9444044444', person: 'Venkatesh' },
+        location: 'Maraimalai Nagar, Chennai',
+        isActive: true,
+      },
+      {
+        name: 'VoltPower Battery Safe Recovery',
+        acceptedMaterials: ['battery'],
+        contact: { phone: '9444055555', person: 'Radha' },
+        location: 'Gummidipoondi, Tamil Nadu',
+        isActive: true,
+      },
+      {
+        name: 'South Paper Mill Reclaimers',
+        acceptedMaterials: ['paper'],
+        contact: { phone: '9444066666', person: 'Manikandan' },
+        location: 'Madhavaram, Chennai',
+        isActive: true,
+      },
+    ];
+    for (const b of defaultBuyers) {
+      await Buyer.findOneAndUpdate({ name: b.name }, b, { upsert: true, new: true, setDefaultsOnInsert: true });
+    }
+    buyers = await Buyer.find(query).sort({ name: 1 });
+  }
 
   // Fetch metrics for each company from CompanyDispatch
   const companiesWithStats = await Promise.all(

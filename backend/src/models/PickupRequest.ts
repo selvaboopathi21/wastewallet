@@ -15,6 +15,16 @@ const pickupRequestSchema = new Schema<IPickupRequest>(
       required: [true, 'Customer ID is required'],
       index: true,
     },
+    customerName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    customerPhone: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     collectorId: {
       type: Schema.Types.ObjectId,
       ref: 'User',

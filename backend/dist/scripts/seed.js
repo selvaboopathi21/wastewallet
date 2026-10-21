@@ -176,19 +176,57 @@ const seedDatabase = async () => {
     const collectorPhone = '9876500001';
     let collector = await User_1.default.findOne({ phone: collectorPhone });
     if (collector) {
+        collector.name = 'Murugan (Top Collector)';
         collector.email = collector.email || 'collector@wastewallet.com';
         collector.password = await bcryptjs_1.default.hash('password123', 10);
+        collector.role = 'collector';
         collector.isApproved = true;
+        collector.isOnline = true;
+        collector.isBlocked = false;
+        collector.zoneId = centralZone._id;
         await collector.save();
+        logger_1.default.info(`ℹ️ Test Collector user updated to Murugan (${collectorPhone}) [Online & Approved in Central Zone]`);
+    }
+    else {
+        collector = await User_1.default.create({
+            phone: collectorPhone,
+            email: 'collector@wastewallet.com',
+            name: 'Murugan (Top Collector)',
+            role: 'collector',
+            password: await bcryptjs_1.default.hash('password123', 10),
+            isApproved: true,
+            isOnline: true,
+            isBlocked: false,
+            zoneId: centralZone._id,
+            rating: { avg: 4.9, count: 124 },
+            language: 'en',
+        });
+        logger_1.default.info(`✅ Created Test Collector user: Murugan (${collectorPhone})`);
     }
     // 6. Seed Pre-Configured Test Customer
     const customerPhone = '9876543210';
     let customer = await User_1.default.findOne({ phone: customerPhone });
     if (customer) {
-        customer.email = customer.email || 'customer@wastewallet.com';
+        customer.name = 'Ravi Kumar';
+        customer.email = 'customer@wastewallet.com';
+        customer.address = '12, 2nd Avenue, Anna Nagar East, Chennai 600102';
         customer.password = await bcryptjs_1.default.hash('password123', 10);
         customer.isApproved = true;
         await customer.save();
+        logger_1.default.info(`ℹ️ Test Customer user updated to Ravi Kumar (${customerPhone})`);
+    }
+    else {
+        customer = await User_1.default.create({
+            phone: customerPhone,
+            email: 'customer@wastewallet.com',
+            name: 'Ravi Kumar',
+            role: 'customer',
+            password: await bcryptjs_1.default.hash('password123', 10),
+            isApproved: true,
+            address: '12, 2nd Avenue, Anna Nagar East, Chennai 600102',
+            language: 'en',
+        });
+        logger_1.default.info(`✅ Created Test Customer user: Ravi Kumar (${customerPhone})`);
     }
     // 7. Seed Recycler Buyers for Automatic Material Routing
     const Buyer = (await Promise.resolve().then(() => __importStar(require('../models/Buyer')))).default;
@@ -231,9 +269,23 @@ const seedDatabase = async () => {
         },
     ];
     for (const b of defaultBuyers) {
-        await Buyer.findOneAndUpdate({ name: b.name }, { ...b, isActive: true }, { upsert: true, new: true, setDefaultsOnInsert: true });
+        const buyerDoc = await Buyer.findOneAndUpdate({ name: b.name }, { ...b, isActive: true }, { upsert: true, new: true, setDefaultsOnInsert: true });
+        // Create a User login account for each Buyer company
+        const buyerEmail = `${b.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@wastewallet.com`;
+        const hashedBuyerPass = await bcryptjs_1.default.hash('password123', 10);
+        await User_1.default.findOneAndUpdate({ phone: b.contact.phone }, {
+            name: `${b.name} (${b.contact.person})`,
+            phone: b.contact.phone,
+            email: buyerEmail,
+            password: hashedBuyerPass,
+            role: 'buyer',
+            address: b.location,
+            isApproved: true,
+            isBlocked: false,
+            language: 'en',
+        }, { upsert: true, new: true, setDefaultsOnInsert: true });
     }
-    logger_1.default.info(`✅ Seeded ${defaultBuyers.length} specialist recycling buyers.`);
+    logger_1.default.info(`✅ Seeded ${defaultBuyers.length} specialist recycling buyers and corresponding login accounts.`);
     await mongoose_1.default.disconnect();
     logger_1.default.info('🎉 Seeding completed successfully and database disconnected!\n');
 };

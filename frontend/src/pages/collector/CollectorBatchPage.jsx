@@ -318,7 +318,7 @@ export const CollectorBatchPage = () => {
                     >
                       <div className="min-w-0 pr-2">
                         <p className="font-bold text-slate-900 truncate">
-                          {pickup.customerId?.name || 'Customer'}
+                          {pickup.customerName || pickup.customerId?.name || 'Customer'}
                         </p>
                         <p className="text-2xs text-slate-500 truncate flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
@@ -364,7 +364,7 @@ export const CollectorBatchPage = () => {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-slate-900">
-                      {job.customerId?.name || 'Customer'}
+                      {job.customerName || job.customerId?.name || 'Customer'}
                     </span>
                     <span className="text-2xs font-mono text-slate-400">
                       #{job._id.slice(-6).toUpperCase()}

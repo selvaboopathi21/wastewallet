@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Camera,
+  User,
+  Phone,
 } from 'lucide-react';
 import api from '../../api/axios';
 import useAuth from '../../hooks/useAuth';
@@ -52,6 +54,10 @@ export const NewPickupPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Contact details
+  const [customerName, setCustomerName] = useState(user?.name || '');
+  const [customerPhone, setCustomerPhone] = useState(user?.phone || '');
+
   // Form states
   const [selectedLocation, setSelectedLocation] = useState(PRESET_LOCATIONS[0]);
   const [address, setAddress] = useState(user?.address || PRESET_LOCATIONS[0].address);
@@ -80,6 +86,11 @@ export const NewPickupPage = () => {
     e.preventDefault();
     setError('');
 
+    const finalName = customerName.trim() || user?.name || '';
+    if (!finalName) {
+      return setError('Please enter your full name');
+    }
+
     if (!address.trim()) {
       return setError('Please enter your pickup address');
     }
@@ -91,6 +102,8 @@ export const NewPickupPage = () => {
     setLoading(true);
     try {
       const payload = {
+        customerName: finalName,
+        customerPhone: customerPhone.trim() || user?.phone || '',
         address: address.trim(),
         coordinates: coordinates,
         customerPricingPreference: pricingMode === 'mixed' ? 'quick_mixed' : 'best_price_separate',
@@ -137,12 +150,50 @@ export const NewPickupPage = () => {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Step 1: Service Location & Zone */}
+        {/* Step 1: Customer Contact Details */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-emerald-600" />
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              1. Customer Name & Contact Phone
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                Your Full Name (Received by Collector)
+              </label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="e.g. Selvaboopathi / Ravi Kumar"
+                required
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-2xs font-bold text-slate-500 uppercase mb-1">
+                Mobile Number (for Call & OTP)
+              </label>
+              <input
+                type="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="10-digit mobile number"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2: Service Location & Zone */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-600" />
             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              1. Pickup Location (Select Zone)
+              2. Pickup Location (Select Zone)
             </h3>
           </div>
 

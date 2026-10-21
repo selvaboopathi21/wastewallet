@@ -121,6 +121,8 @@ export type SeparateRequestStatus = 'pending' | 'accepted' | 'declined';
 export interface IPickupRequest extends Document {
   _id: Types.ObjectId;
   customerId: Types.ObjectId;
+  customerName?: string;
+  customerPhone?: string;
   collectorId?: Types.ObjectId | null;
   zoneId: Types.ObjectId;
   address: string;

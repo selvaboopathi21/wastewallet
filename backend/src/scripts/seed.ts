@@ -148,10 +148,31 @@ export const seedDatabase = async () => {
   const collectorPhone = '9876500001';
   let collector = await User.findOne({ phone: collectorPhone });
   if (collector) {
+    collector.name = 'Murugan (Top Collector)';
     collector.email = collector.email || 'collector@wastewallet.com';
     collector.password = await bcrypt.hash('password123', 10);
+    collector.role = 'collector';
     collector.isApproved = true;
+    collector.isOnline = true;
+    collector.isBlocked = false;
+    collector.zoneId = centralZone._id;
     await collector.save();
+    logger.info(`ℹ️ Test Collector user updated to Murugan (${collectorPhone}) [Online & Approved in Central Zone]`);
+  } else {
+    collector = await User.create({
+      phone: collectorPhone,
+      email: 'collector@wastewallet.com',
+      name: 'Murugan (Top Collector)',
+      role: 'collector',
+      password: await bcrypt.hash('password123', 10),
+      isApproved: true,
+      isOnline: true,
+      isBlocked: false,
+      zoneId: centralZone._id,
+      rating: { avg: 4.9, count: 124 },
+      language: 'en',
+    });
+    logger.info(`✅ Created Test Collector user: Murugan (${collectorPhone})`);
   }
 
   // 6. Seed Pre-Configured Test Customer

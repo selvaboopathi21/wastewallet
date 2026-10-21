@@ -44,6 +44,16 @@ const pickupRequestSchema = new mongoose_1.Schema({
         required: [true, 'Customer ID is required'],
         index: true,
     },
+    customerName: {
+        type: String,
+        trim: true,
+        default: '',
+    },
+    customerPhone: {
+        type: String,
+        trim: true,
+        default: '',
+    },
     collectorId: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: 'User',

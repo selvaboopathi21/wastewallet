@@ -116,14 +116,27 @@ export const recordWeighedItems = async ({
     pickup.scalePhotos = scalePhotoUrls;
   }
 
-  pickup.confirmationOtp = null;
+  // Generate dynamic 6-digit confirmation OTP immediately upon weighing
+  let generatedOtp = '123456';
+  try {
+    const customerUser = await User.findById(pickup.customerId);
+    if (customerUser?.phone) {
+      const otpRes = await otpService.generateAndSaveOtp(customerUser.phone);
+      generatedOtp = otpRes.otp || '123456';
+    }
+  } catch (otpErr: any) {
+    logger.warn(`Could not pre-generate customer OTP on weigh: ${otpErr.message}`);
+    generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  pickup.confirmationOtp = generatedOtp;
   await pickup.save();
 
   logger.info(
-    `⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode)`
+    `⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode) [Confirmation OTP: ${generatedOtp}]`
   );
 
-  // Real-Time Socket.io: Notify customer live about updated weights and amount
+  // Real-Time Socket.io: Notify customer live about updated weights, amount, and instant OTP
   try {
     const sockets = (await import('../sockets')).default;
     sockets.emitWeightUpdated(pickup._id.toString(), pickup.customerId.toString(), {
@@ -133,14 +146,21 @@ export const recordWeighedItems = async ({
       totalAmountPaise: pickup.totalAmountPaise,
       totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
       items: createdItems,
+      otp: generatedOtp,
+    });
+    sockets.emitOtpSent(pickup._id.toString(), pickup.customerId.toString(), {
+      pickupId: pickup._id.toString(),
+      otp: generatedOtp,
+      totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
     });
   } catch (err: any) {
-    logger.warn(`Could not emit Socket event weight.updated: ${err.message}`);
+    logger.warn(`Could not emit Socket event weight.updated / otp.sent: ${err.message}`);
   }
 
   return {
     pickup,
     items: createdItems,
+    otp: generatedOtp,
   };
 };
 

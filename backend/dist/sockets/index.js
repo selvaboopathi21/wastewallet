@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.emitBatchReceived = exports.emitBatchCreated = exports.emitOtpSent = exports.emitPickupOffered = exports.emitPickupConfirmed = exports.emitStatusChanged = exports.emitSeparatePriceDeclined = exports.emitSeparatePriceAccepted = exports.emitSeparatePriceRequested = exports.emitWeightUpdated = exports.getIO = exports.initSocket = void 0;
+exports.emitCompanyDispatchReceived = exports.emitCompanyDispatchCreated = exports.emitBatchReceived = exports.emitBatchCreated = exports.emitOtpSent = exports.emitPickupOffered = exports.emitPickupConfirmed = exports.emitStatusChanged = exports.emitSeparatePriceDeclined = exports.emitSeparatePriceAccepted = exports.emitSeparatePriceRequested = exports.emitWeightUpdated = exports.getIO = exports.initSocket = void 0;
 const socket_io_1 = require("socket.io");
 const env_1 = __importDefault(require("../config/env"));
 const logger_1 = __importDefault(require("../utils/logger"));
@@ -181,6 +181,35 @@ const emitBatchReceived = (batch) => {
     logger_1.default.info(`📡 Emitted "batch.received" for batch ${batch?.qrCode}`);
 };
 exports.emitBatchReceived = emitBatchReceived;
+/**
+ * 11. Emits new scrap dispatch consignment created to tie-up company and store staff
+ */
+const emitCompanyDispatchCreated = (dispatch) => {
+    if (!io)
+        return;
+    const companyId = dispatch?.companyId?._id || dispatch?.companyId;
+    if (companyId) {
+        io.to(`company:${companyId}`).to(`user:${companyId}`).emit('company.dispatch.created', { dispatch });
+    }
+    io.emit('company.dispatch.created', { dispatch });
+    logger_1.default.info(`📡 Emitted "company.dispatch.created" for code ${dispatch?.dispatchCode} to company ${companyId}`);
+};
+exports.emitCompanyDispatchCreated = emitCompanyDispatchCreated;
+/**
+ * 12. Emits company receipt confirmation & message back to store staff and admin
+ */
+const emitCompanyDispatchReceived = (dispatch, notification) => {
+    if (!io)
+        return;
+    const staffId = dispatch?.storeStaffId?._id || dispatch?.storeStaffId;
+    if (staffId) {
+        io.to(`user:${staffId}`).emit('company.dispatch.received', { dispatch, notification });
+    }
+    // Also broadcast to staff channel and global
+    io.emit('company.dispatch.received', { dispatch, notification });
+    logger_1.default.info(`📡 Emitted "company.dispatch.received" for dispatch ${dispatch?.dispatchCode} to staff: ${notification?.message}`);
+};
+exports.emitCompanyDispatchReceived = emitCompanyDispatchReceived;
 exports.default = {
     initSocket: exports.initSocket,
     getIO: exports.getIO,
@@ -194,4 +223,6 @@ exports.default = {
     emitOtpSent: exports.emitOtpSent,
     emitBatchCreated: exports.emitBatchCreated,
     emitBatchReceived: exports.emitBatchReceived,
+    emitCompanyDispatchCreated: exports.emitCompanyDispatchCreated,
+    emitCompanyDispatchReceived: exports.emitCompanyDispatchReceived,
 };

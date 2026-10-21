@@ -649,8 +649,14 @@ export const CollectorHome = () => {
 
               <div>
                 <h4 className="text-sm font-black text-slate-900">
-                  {offer.customerId?.name || 'Customer Pickup'}
+                  {offer.customerName || offer.customerId?.name || 'Customer Pickup'}
                 </h4>
+                {(offer.customerPhone || offer.customerId?.phone) && (
+                  <p className="text-2xs text-emerald-800 font-mono flex items-center gap-1 font-semibold mt-0.5">
+                    <Phone className="w-3 h-3 text-emerald-600" />
+                    {offer.customerPhone || offer.customerId?.phone}
+                  </p>
+                )}
                 <p className="text-xs text-slate-700 flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                   {offer.address}
@@ -729,8 +735,13 @@ export const CollectorHome = () => {
 
                 <div>
                   <h4 className="text-xs font-black text-slate-900 group-hover:text-emerald-900 transition-colors">
-                    {job.customerId?.name || 'Customer'}
+                    {job.customerName || job.customerId?.name || 'Customer'}
                   </h4>
+                  {(job.customerPhone || job.customerId?.phone) && (
+                    <span className="text-2xs font-mono text-emerald-700 block">
+                      {job.customerPhone || job.customerId?.phone}
+                    </span>
+                  )}
                   <p className="text-2xs text-slate-600 flex items-center gap-1 mt-0.5 truncate">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     {job.address}
@@ -775,7 +786,7 @@ export const CollectorHome = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-black text-slate-900">
-                      {job.customerId?.name || 'Customer'}
+                      {job.customerName || job.customerId?.name || 'Customer'}
                     </span>
                     <span className="text-2xs font-mono font-bold text-slate-400">
                       #{job._id.slice(-6).toUpperCase()}

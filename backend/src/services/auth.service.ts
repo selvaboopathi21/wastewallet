@@ -128,6 +128,9 @@ export const verifyOtpAndLogin = async ({
     if (['9876500001', '9876543210', '9876500002', '9999999999'].includes(phone)) {
       user.isBlocked = false;
       user.isApproved = true;
+      if (user.role === 'collector') {
+        user.isOnline = true;
+      }
       modified = true;
     }
 
@@ -504,6 +507,12 @@ export const loginWithPassword = async ({
       throw new ApiError(403, 'Your Collector partner application was rejected by Admin. You cannot access the Collector portal.');
     }
     throw new ApiError(403, 'Your account is registered as a Customer and has not been approved as a Collector. Please sign in as a Customer.');
+  }
+
+  // Ensure active approved collector is online so matching engine finds them immediately
+  if (user.role === 'collector' && user.isApproved) {
+    user.isOnline = true;
+    await user.save();
   }
 
   const token = jwt.sign(

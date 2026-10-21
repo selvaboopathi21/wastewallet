@@ -448,16 +448,22 @@ export const CollectorJobCard = () => {
               Customer Details
             </span>
             <h3 className="text-sm font-black text-slate-900 mt-0.5">
-              {pickup.customerId?.name || 'Customer'}
+              {pickup.customerName || pickup.customerId?.name || 'Customer'}
             </h3>
+            {(pickup.customerPhone || pickup.customerId?.phone) && (
+              <span className="text-2xs font-mono text-emerald-700 font-bold block mt-0.5">
+                {pickup.customerPhone || pickup.customerId?.phone}
+              </span>
+            )}
           </div>
 
-          {pickup.customerId?.phone && (
+          {(pickup.customerPhone || pickup.customerId?.phone) && (
             <a
-              href={`tel:${pickup.customerId.phone}`}
-              className="w-9 h-9 bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 shadow-xs transition-colors"
+              href={`tel:${pickup.customerPhone || pickup.customerId.phone}`}
+              className="px-3 py-2 bg-emerald-600 text-white rounded-xl flex items-center gap-1.5 hover:bg-emerald-700 shadow-xs transition-colors text-xs font-bold"
             >
               <Phone className="w-4 h-4" />
+              <span>Call</span>
             </a>
           )}
         </div>

@@ -7,7 +7,16 @@ import ApiError from '../utils/ApiError';
 // POST /api/v1/pickups (Customer creates scrap pickup)
 export const createPickup = asyncHandler(async (req: Request, res: Response) => {
   const customerId = req.user!._id.toString();
-  const { address, preferredTime, customerPricingPreference, zoneId } = req.body;
+  const {
+    address,
+    preferredTime,
+    customerPricingPreference,
+    zoneId,
+    customerName,
+    name,
+    customerPhone,
+    phone,
+  } = req.body;
 
   // Handle coordinates from either JSON body or multipart form-data string
   let coordinates = req.body.coordinates;
@@ -23,6 +32,8 @@ export const createPickup = asyncHandler(async (req: Request, res: Response) => 
 
   const pickup = await pickupService.createPickupRequest({
     customerId,
+    customerName: (customerName || name || req.user?.name || '').trim(),
+    customerPhone: (customerPhone || phone || req.user?.phone || '').trim(),
     address,
     coordinates,
     preferredTime,

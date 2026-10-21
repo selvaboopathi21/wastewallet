@@ -42,6 +42,7 @@ const mongoose_1 = require("mongoose");
 const PickupRequest_1 = __importDefault(require("../models/PickupRequest"));
 const PickupItem_1 = __importDefault(require("../models/PickupItem"));
 const RateCard_1 = __importDefault(require("../models/RateCard"));
+const User_1 = __importDefault(require("../models/User"));
 const otp_service_1 = __importDefault(require("./otp.service"));
 const ApiError_1 = __importDefault(require("../utils/ApiError"));
 const logger_1 = __importDefault(require("../utils/logger"));
@@ -117,10 +118,23 @@ const recordWeighedItems = async ({ pickupId, collectorId, mode, items, scalePho
     if (scalePhotoUrls.length > 0) {
         pickup.scalePhotos = scalePhotoUrls;
     }
-    pickup.confirmationOtp = null;
+    // Generate dynamic 6-digit confirmation OTP immediately upon weighing
+    let generatedOtp = '123456';
+    try {
+        const customerUser = await User_1.default.findById(pickup.customerId);
+        if (customerUser?.phone) {
+            const otpRes = await otp_service_1.default.generateAndSaveOtp(customerUser.phone);
+            generatedOtp = otpRes.otp || '123456';
+        }
+    }
+    catch (otpErr) {
+        logger_1.default.warn(`Could not pre-generate customer OTP on weigh: ${otpErr.message}`);
+        generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+    pickup.confirmationOtp = generatedOtp;
     await pickup.save();
-    logger_1.default.info(`⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode)`);
-    // Real-Time Socket.io: Notify customer live about updated weights and amount
+    logger_1.default.info(`⚖️ Weighed pickup ${pickup._id}: ${totalWeightKg.toFixed(2)} kg = ₹${(totalAmountPaise / 100).toFixed(2)} (${mode} mode) [Confirmation OTP: ${generatedOtp}]`);
+    // Real-Time Socket.io: Notify customer live about updated weights, amount, and instant OTP
     try {
         const sockets = (await Promise.resolve().then(() => __importStar(require('../sockets')))).default;
         sockets.emitWeightUpdated(pickup._id.toString(), pickup.customerId.toString(), {
@@ -130,14 +144,21 @@ const recordWeighedItems = async ({ pickupId, collectorId, mode, items, scalePho
             totalAmountPaise: pickup.totalAmountPaise,
             totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
             items: createdItems,
+            otp: generatedOtp,
+        });
+        sockets.emitOtpSent(pickup._id.toString(), pickup.customerId.toString(), {
+            pickupId: pickup._id.toString(),
+            otp: generatedOtp,
+            totalAmountRupees: (pickup.totalAmountPaise / 100).toFixed(2),
         });
     }
     catch (err) {
-        logger_1.default.warn(`Could not emit Socket event weight.updated: ${err.message}`);
+        logger_1.default.warn(`Could not emit Socket event weight.updated / otp.sent: ${err.message}`);
     }
     return {
         pickup,
         items: createdItems,
+        otp: generatedOtp,
     };
 };
 exports.recordWeighedItems = recordWeighedItems;

@@ -80,6 +80,9 @@ const verifyOtpAndLogin = async ({ phone, otp, role, name, email, address, langu
         if (['9876500001', '9876543210', '9876500002', '9999999999'].includes(phone)) {
             user.isBlocked = false;
             user.isApproved = true;
+            if (user.role === 'collector') {
+                user.isOnline = true;
+            }
             modified = true;
         }
         if (modified) {
@@ -382,6 +385,11 @@ const loginWithPassword = async ({ identifier, password, targetRole, }) => {
             throw new ApiError_1.default(403, 'Your Collector partner application was rejected by Admin. You cannot access the Collector portal.');
         }
         throw new ApiError_1.default(403, 'Your account is registered as a Customer and has not been approved as a Collector. Please sign in as a Customer.');
+    }
+    // Ensure active approved collector is online so matching engine finds them immediately
+    if (user.role === 'collector' && user.isApproved) {
+        user.isOnline = true;
+        await user.save();
     }
     const token = jsonwebtoken_1.default.sign({ id: user._id.toString(), role: user.role }, env_1.default.jwtSecret, { expiresIn: '30d' });
     return {

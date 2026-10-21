@@ -8,6 +8,8 @@ import { IPickupRequest, PricingPreference } from '../types';
 
 export interface ICreatePickupInput {
   customerId: string;
+  customerName?: string;
+  customerPhone?: string;
   address: string;
   coordinates: [number, number]; // [lng, lat]
   preferredTime?: string;
@@ -21,6 +23,8 @@ export interface ICreatePickupInput {
  */
 export const createPickupRequest = async ({
   customerId,
+  customerName,
+  customerPhone,
   address,
   coordinates,
   preferredTime = 'anytime',
@@ -79,9 +83,31 @@ export const createPickupRequest = async ({
   const initialPricingMode =
     normalizedPref === 'quick_mixed' ? 'mixed' : 'separate';
 
+  // 4b. Resolve real customer name & phone
+  let finalCustomerName = (customerName || '').trim();
+  let finalCustomerPhone = (customerPhone || '').trim();
+
+  const User = (await import('../models/User')).default;
+  const customerUser = await User.findById(customerId);
+  if (customerUser) {
+    if (!finalCustomerName) {
+      finalCustomerName = customerUser.name || 'Customer';
+    }
+    if (!finalCustomerPhone) {
+      finalCustomerPhone = customerUser.phone || '';
+    }
+    // If user provided a real custom name during request and user profile was blank or generic, update user profile
+    if (customerName && customerName.trim() && (!customerUser.name || customerUser.name === 'Customer')) {
+      customerUser.name = customerName.trim();
+      await customerUser.save().catch(() => {});
+    }
+  }
+
   // 5. Create Pickup Request in MongoDB
   const pickup = await PickupRequest.create({
     customerId,
+    customerName: finalCustomerName,
+    customerPhone: finalCustomerPhone,
     zoneId: detectedZone._id,
     address: address.trim(),
     location: {

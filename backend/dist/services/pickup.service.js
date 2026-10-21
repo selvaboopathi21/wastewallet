@@ -46,7 +46,7 @@ const ApiError_1 = __importDefault(require("../utils/ApiError"));
 /**
  * Creates a new customer scrap pickup request with automatic zone detection
  */
-const createPickupRequest = async ({ customerId, address, coordinates, preferredTime = 'anytime', customerPricingPreference = 'none', files = [], zoneId, }) => {
+const createPickupRequest = async ({ customerId, customerName, customerPhone, address, coordinates, preferredTime = 'anytime', customerPricingPreference = 'none', files = [], zoneId, }) => {
     // 1. Validate address and GPS coordinates
     if (!address || !address.trim()) {
         throw new ApiError_1.default(400, 'Pickup address is required');
@@ -87,9 +87,29 @@ const createPickupRequest = async ({ customerId, address, coordinates, preferred
     if (normalizedPref === 'mixed')
         normalizedPref = 'quick_mixed';
     const initialPricingMode = normalizedPref === 'quick_mixed' ? 'mixed' : 'separate';
+    // 4b. Resolve real customer name & phone
+    let finalCustomerName = (customerName || '').trim();
+    let finalCustomerPhone = (customerPhone || '').trim();
+    const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
+    const customerUser = await User.findById(customerId);
+    if (customerUser) {
+        if (!finalCustomerName) {
+            finalCustomerName = customerUser.name || 'Customer';
+        }
+        if (!finalCustomerPhone) {
+            finalCustomerPhone = customerUser.phone || '';
+        }
+        // If user provided a real custom name during request and user profile was blank or generic, update user profile
+        if (customerName && customerName.trim() && (!customerUser.name || customerUser.name === 'Customer')) {
+            customerUser.name = customerName.trim();
+            await customerUser.save().catch(() => { });
+        }
+    }
     // 5. Create Pickup Request in MongoDB
     const pickup = await PickupRequest_1.default.create({
         customerId,
+        customerName: finalCustomerName,
+        customerPhone: finalCustomerPhone,
         zoneId: detectedZone._id,
         address: address.trim(),
         location: {

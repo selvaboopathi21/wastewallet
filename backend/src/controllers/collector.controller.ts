@@ -57,44 +57,30 @@ export const getMyOffers = asyncHandler(async (req: Request, res: Response) => {
   const userZoneId = req.user!.zoneId;
   const now = new Date();
 
-  // Find active, unexpired offers:
-  // 1. Specifically offered to this collector (currentOfferCollectorId = collectorId)
-  // 2. OR open broadcast in their zone (currentOfferCollectorId = null / unset)
-  const recipientCondition = userZoneId
-    ? {
-        $or: [
-          { currentOfferCollectorId: collectorId },
-          {
-            $and: [
-              {
-                $or: [
-                  { currentOfferCollectorId: null },
-                  { currentOfferCollectorId: { $exists: false } },
-                ],
-              },
-              {
-                $or: [
-                  { zoneId: userZoneId },
-                  { zoneId: null },
-                  { zoneId: { $exists: false } },
-                  { noCollectorsAvailable: true },
-                ],
-              },
-            ],
-          },
-        ],
-      }
-    : {
-        $or: [
-          { currentOfferCollectorId: collectorId },
-          { currentOfferCollectorId: null },
-          { currentOfferCollectorId: { $exists: false } },
-        ],
-      };
-
   const collectorObjId = Types.ObjectId.isValid(collectorId)
     ? new Types.ObjectId(collectorId)
     : null;
+
+  const collectorIdentities: any[] = [collectorId];
+  if (collectorObjId) collectorIdentities.push(collectorObjId);
+
+  // Find active, unexpired offers:
+  // 1. Specifically targeted to this collector
+  // 2. OR candidate included in offeredTo list by dispatch engine
+  // 3. OR open broadcast in zone / citywide
+  const recipientCondition = {
+    $or: [
+      { currentOfferCollectorId: { $in: collectorIdentities } },
+      { offeredTo: { $in: collectorIdentities } },
+      {
+        $or: [
+          { currentOfferCollectorId: null },
+          { currentOfferCollectorId: { $exists: false } },
+        ],
+      },
+      { noCollectorsAvailable: true },
+    ],
+  };
 
   const declinedExclusions: any[] = [collectorId];
   if (collectorObjId) declinedExclusions.push(collectorObjId);

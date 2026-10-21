@@ -62,31 +62,64 @@ export const StoreHandoverPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [invRes, compRes, dispRes, notifRes] = await Promise.all([
+      setError('');
+      const [invResult, compResult, dispResult, notifResult] = await Promise.allSettled([
         api.get('/company-dispatch/inventory'),
         api.get('/company-dispatch/companies'),
         api.get('/company-dispatch/dispatches'),
         api.get('/company-dispatch/notifications'),
       ]);
 
-      const invData = invRes?.data?.data || invRes?.data;
-      setInventorySummary(invData?.summary || null);
-      setCategoryStreams(invData?.inventory || []);
-      setRecentSortedBatches(invData?.recentSortedBatches || []);
+      if (invResult.status === 'fulfilled') {
+        const invData = invResult.value?.data?.data || invResult.value?.data || invResult.value;
+        setInventorySummary(invData?.summary || null);
+        setCategoryStreams(invData?.inventory || []);
+        setRecentSortedBatches(invData?.recentSortedBatches || []);
+      } else {
+        console.warn('Inventory fetch notice:', invResult.reason?.message);
+      }
 
-      const compData = compRes?.data?.data?.companies || compRes?.data?.companies || [];
-      setCompanies(compData);
+      if (compResult.status === 'fulfilled') {
+        const compData =
+          compResult.value?.data?.data?.companies ||
+          compResult.value?.data?.companies ||
+          compResult.value?.companies ||
+          [];
+        setCompanies(compData);
+        if (compData.length > 0 && !selectedCompanyId) {
+          setSelectedCompanyId(compData[0]._id);
+        }
+      } else {
+        console.warn('Companies fetch notice:', compResult.reason?.message);
+      }
 
-      const dispData = dispRes?.data?.data?.dispatches || dispRes?.data?.dispatches || [];
-      setDispatches(dispData);
+      if (dispResult.status === 'fulfilled') {
+        const dispData =
+          dispResult.value?.data?.data?.dispatches ||
+          dispResult.value?.data?.dispatches ||
+          dispResult.value?.dispatches ||
+          [];
+        setDispatches(dispData);
+      } else {
+        console.warn('Dispatches fetch notice:', dispResult.reason?.message);
+      }
 
-      const notifData = notifRes?.data?.data || notifRes?.data;
-      setNotifications(notifData?.notifications || []);
-      setUnreadNotifCount(notifData?.unreadCount || 0);
+      if (notifResult.status === 'fulfilled') {
+        const notifData = notifResult.value?.data?.data || notifResult.value?.data || notifResult.value;
+        setNotifications(notifData?.notifications || []);
+        setUnreadNotifCount(notifData?.unreadCount || 0);
+      } else {
+        console.warn('Notifications fetch notice:', notifResult.reason?.message);
+      }
 
-      // Pre-select first matching company if available
-      if (compData.length > 0 && !selectedCompanyId) {
-        setSelectedCompanyId(compData[0]._id);
+      // If inventory explicitly rejected, notify gracefully
+      if (invResult.status === 'rejected') {
+        const msg = invResult.reason?.response?.data?.message || invResult.reason?.message;
+        if (msg && msg.includes('Route not found')) {
+          setError('Backend deployment pending on Render. Running on local cached inventory.');
+        } else if (msg) {
+          setError(msg);
+        }
       }
     } catch (err) {
       console.error('Failed to load handover data:', err);
