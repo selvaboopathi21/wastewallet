@@ -209,6 +209,7 @@ export const LoginPage = () => {
     forgotPassword,
     resetPassword,
     loginWithToken,
+    logout,
   } = useAuth();
   const navigate = useNavigate();
 
@@ -320,6 +321,39 @@ export const LoginPage = () => {
         password,
         targetRole: role,
       });
+
+      // Client-side role isolation guard (works immediately on Vercel even if remote backend is pending redeployment)
+      if (role === 'customer' && user.role !== 'customer') {
+        const roleLabel =
+          user.role === 'collector'
+            ? 'Scrap Collector Partner'
+            : user.role === 'store_staff'
+            ? 'Store Staff Depot'
+            : user.role === 'admin'
+            ? 'Administrator'
+            : user.role;
+        logout();
+        setError(`This account is registered as a ${roleLabel}, not as a Customer. Please switch to the ${roleLabel} login tab to sign in.`);
+        return;
+      }
+
+      if (role === 'collector' && user.role !== 'collector') {
+        logout();
+        setError('This account is registered as a Customer, not a Collector. Please sign in under the Customer tab.');
+        return;
+      }
+
+      if (role === 'admin' && user.role !== 'admin') {
+        logout();
+        setError('Access denied. This account does not have Administrator privileges.');
+        return;
+      }
+
+      if (role === 'store_staff' && user.role !== 'store_staff' && user.role !== 'admin') {
+        logout();
+        setError(`Access denied. This account does not have Store Warehouse Staff privileges.`);
+        return;
+      }
 
       // Synchronize role if logging into Collector portal
       if (role === 'collector' && user.role !== 'collector') {
@@ -535,6 +569,27 @@ export const LoginPage = () => {
         address: address.trim() || undefined,
         role,
       });
+
+      // Client-side role isolation guard for OTP login
+      if (role === 'customer' && user.role !== 'customer') {
+        const roleLabel =
+          user.role === 'collector'
+            ? 'Scrap Collector Partner'
+            : user.role === 'store_staff'
+            ? 'Store Staff Depot'
+            : user.role === 'admin'
+            ? 'Administrator'
+            : user.role;
+        logout();
+        setError(`This mobile number is registered as a ${roleLabel}, not as a Customer. Please switch to the ${roleLabel} login tab to sign in.`);
+        return;
+      }
+
+      if (role === 'collector' && user.role !== 'collector') {
+        logout();
+        setError('This mobile number is registered as a Customer, not as a Collector. Please sign in under the Customer tab.');
+        return;
+      }
 
       if (role === 'collector') {
         user.role = 'collector';
