@@ -337,16 +337,19 @@ export const LoginPage = () => {
 
       navigate(destination, { replace: true });
     } catch (err) {
-      // Seamless fallback for demo/test accounts if password is demo code
-      const match =
-        FALLBACK_ACCOUNTS[cleanId] ||
-        Object.values(FALLBACK_ACCOUNTS).find((acc) => acc.user.role === role);
-      if (match && (password === '123456' || password === 'admin123' || password === 'password123')) {
-        loginWithToken(match.token, match.user);
-        navigate(match.destination, { replace: true });
-        return;
+      const serverMsg = err?.response?.data?.message || err?.message;
+
+      // Only check demo fallback if backend server is completely unreachable (Network Error)
+      const isNetworkOffline = !err.response || err?.code === 'ERR_NETWORK' || (err?.message && err.message.includes('Network Error'));
+      if (isNetworkOffline && cleanId && FALLBACK_ACCOUNTS[cleanId]) {
+        const match = FALLBACK_ACCOUNTS[cleanId];
+        if (password === '123456' || password === 'admin123' || password === 'password123') {
+          loginWithToken(match.token, match.user);
+          navigate(match.destination, { replace: true });
+          return;
+        }
       }
-      setError(err.message || 'Invalid credentials. Please check your password.');
+      setError(serverMsg || 'Invalid credentials. Please check your password.');
     } finally {
       setLoading(false);
     }
@@ -400,29 +403,17 @@ export const LoginPage = () => {
 
       navigate(destination, { replace: true });
     } catch (err) {
-      if (err.message && (err.message.includes('already registered') || err.message.includes('Please sign in'))) {
-        try {
-          const loggedInUser = await loginWithPassword({
-            identifier: cleanPhone,
-            password,
-            targetRole: role,
-          });
-          if (role === 'collector') {
-            loggedInUser.role = 'collector';
-            localStorage.setItem('user', JSON.stringify(loggedInUser));
-          }
-          const destination = {
-            customer: '/customer',
-            collector: '/collector',
-            store_staff: '/store',
-            admin: '/admin',
-          }[loggedInUser.role] || (role === 'collector' ? '/collector' : '/customer');
-          navigate(destination, { replace: true });
-          return;
-        } catch (loginErr) {
-          setError('This mobile number is already registered. If this is your account, please enter the correct password or use Sign In.');
-          return;
-        }
+      const serverMsg = err?.response?.data?.message || err?.message || '';
+
+      // If registered under another role or duplicate, notify clearly without silent cross-role login
+      if (serverMsg.includes('registered as a') || serverMsg.includes('Collector Partner')) {
+        setError(serverMsg);
+        return;
+      }
+
+      if (serverMsg.includes('already registered') || serverMsg.includes('Please sign in')) {
+        setError(serverMsg || 'This mobile number is already registered. Please switch to Sign In.');
+        return;
       }
 
       if (
@@ -560,36 +551,19 @@ export const LoginPage = () => {
 
       navigate(destination, { replace: true });
     } catch (err) {
-      // Seamless Resilience Fallback for OTP
-      if (cleanOtp === '123456' || (devOtp && cleanOtp === devOtp)) {
-        const match =
-          FALLBACK_ACCOUNTS[cleanPhone] ||
-          Object.values(FALLBACK_ACCOUNTS).find((acc) => acc.user.role === role) ||
-          FALLBACK_ACCOUNTS['9876543210'];
+      const serverMsg = err?.response?.data?.message || err?.message;
 
-        if (match) {
-          const resolvedUser = {
-            ...match.user,
-            phone: cleanPhone,
-            name: name?.trim() || match.user.name,
-            email: email?.trim() || match.user.email || '',
-            address: address?.trim() || match.user.address || '',
-            role: role || match.user.role,
-            isApproved: true,
-            isOnline: true,
-          };
-          loginWithToken(match.token, resolvedUser);
-          const dest = {
-            customer: '/customer',
-            collector: '/collector',
-            store_staff: '/store',
-            admin: '/admin',
-          }[resolvedUser.role] || (role === 'collector' ? '/collector' : match.destination);
-          navigate(dest, { replace: true });
+      // Only fallback if backend is completely offline
+      const isNetworkOffline = !err.response || err?.code === 'ERR_NETWORK' || (err?.message && err.message.includes('Network Error'));
+      if (isNetworkOffline && cleanPhone && FALLBACK_ACCOUNTS[cleanPhone]) {
+        if (cleanOtp === '123456' || (devOtp && cleanOtp === devOtp)) {
+          const match = FALLBACK_ACCOUNTS[cleanPhone];
+          loginWithToken(match.token, match.user);
+          navigate(match.destination, { replace: true });
           return;
         }
       }
-      setError(err.message || 'Invalid OTP code. Please check and try again.');
+      setError(serverMsg || 'Invalid OTP code. Please check and try again.');
     } finally {
       setLoading(false);
     }
@@ -867,8 +841,42 @@ export const LoginPage = () => {
         {/* Content Box */}
         <div className="p-6">
           {error && (
-            <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-semibold">
-              {error}
+            <div className="mb-4 p-3.5 bg-rose-500/15 border border-rose-500/40 rounded-2xl text-rose-200 text-xs font-semibold space-y-2.5">
+              <div className="flex items-start gap-2">
+                <span className="text-base shrink-0 leading-none mt-0.5">⚠️</span>
+                <span className="flex-1 leading-snug">{error}</span>
+              </div>
+
+              {/* One-click quick switch if account role doesn't match selected tab */}
+              {error.toLowerCase().includes('collector') && role === 'customer' && (
+                <button
+                  type="button"
+                  onClick={() => selectRolePortal('collector')}
+                  className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95"
+                >
+                  <span>🚚 Switch to Collector Login Tab ➔</span>
+                </button>
+              )}
+
+              {error.toLowerCase().includes('customer') && role === 'collector' && (
+                <button
+                  type="button"
+                  onClick={() => selectRolePortal('customer')}
+                  className="w-full py-2 px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95"
+                >
+                  <span>👤 Switch to Customer Login Tab ➔</span>
+                </button>
+              )}
+
+              {error.toLowerCase().includes('store staff') && role !== 'store_staff' && (
+                <button
+                  type="button"
+                  onClick={() => selectRolePortal('store_staff')}
+                  className="w-full py-2 px-3 bg-blue-500 hover:bg-blue-400 text-slate-950 font-black rounded-xl text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95"
+                >
+                  <span>🏬 Switch to Staff Depot Tab ➔</span>
+                </button>
+              )}
             </div>
           )}
 

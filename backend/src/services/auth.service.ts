@@ -116,12 +116,26 @@ export const verifyOtpAndLogin = async ({
       modified = true;
     }
     if (role && Object.values(ROLES).includes(role) && user.role !== role) {
-      user.role = role;
-      if (role === 'collector') {
+      if (role === 'customer' && user.role !== 'customer') {
+        const roleLabel =
+          user.role === 'collector'
+            ? 'Scrap Collector Partner'
+            : user.role === 'store_staff'
+            ? 'Store Staff Depot'
+            : user.role === 'admin'
+            ? 'Administrator'
+            : user.role;
+        throw new ApiError(
+          403,
+          `This mobile number is registered as a ${roleLabel}, not a Customer. Please switch to the ${roleLabel} portal tab to sign in.`
+        );
+      }
+      if (role === 'collector' && user.role !== 'collector') {
+        user.role = role;
         user.isApproved = false;
         user.isOnline = false;
+        modified = true;
       }
-      modified = true;
     }
 
     // Pre-seeded accounts keep approval
@@ -358,7 +372,18 @@ export const registerWithPassword = async ({
 
     if (existing.password) {
       if (existing.phone === cleanPhone) {
-        throw new ApiError(400, 'Mobile number already registered. Please sign in with your password.');
+        const roleLabel =
+          existing.role === 'collector'
+            ? 'Scrap Collector Partner'
+            : existing.role === 'store_staff'
+            ? 'Store Staff'
+            : existing.role === 'admin'
+            ? 'Administrator'
+            : 'Customer';
+        throw new ApiError(
+          400,
+          `This mobile number is already registered as a ${roleLabel}. Please switch to the ${roleLabel} portal tab to sign in.`
+        );
       }
       throw new ApiError(400, 'Email address already registered. Please sign in with your password.');
     } else {
@@ -501,12 +526,49 @@ export const loginWithPassword = async ({
     throw new ApiError(403, 'Your account is suspended. Please contact customer support.');
   }
 
-  // If logging into Collector portal, verify user is an active/permitted collector
-  if (targetRole && targetRole === 'collector' && user.role !== 'collector') {
-    if (user.isRejected) {
-      throw new ApiError(403, 'Your Collector partner application was rejected by Admin. You cannot access the Collector portal.');
+  // Verify user role matches targetRole when logging into specific portal
+  if (targetRole) {
+    if (targetRole === 'customer' && user.role !== 'customer') {
+      const roleLabel =
+        user.role === 'collector'
+          ? 'Scrap Collector Partner'
+          : user.role === 'store_staff'
+          ? 'Store Staff Depot'
+          : user.role === 'admin'
+          ? 'Administrator'
+          : user.role;
+      throw new ApiError(
+        403,
+        `This account is registered as a ${roleLabel}, not as a Customer. Please switch to the ${roleLabel} login tab to sign in.`
+      );
     }
-    throw new ApiError(403, 'Your account is registered as a Customer and has not been approved as a Collector. Please sign in as a Customer.');
+
+    if (targetRole === 'collector' && user.role !== 'collector') {
+      if (user.isRejected) {
+        throw new ApiError(
+          403,
+          'Your Collector partner application was rejected by Admin. You cannot access the Collector portal.'
+        );
+      }
+      throw new ApiError(
+        403,
+        'This account is registered as a Customer, not a Collector. Please sign in under the Customer tab.'
+      );
+    }
+
+    if (targetRole === 'store_staff' && user.role !== 'store_staff' && user.role !== 'admin') {
+      throw new ApiError(
+        403,
+        `Access denied. This account does not have Store Warehouse Staff privileges. Your registered role is: ${user.role}.`
+      );
+    }
+
+    if (targetRole === 'admin' && user.role !== 'admin') {
+      throw new ApiError(
+        403,
+        'Access denied. This account does not have Administrator privileges.'
+      );
+    }
   }
 
   // Ensure active approved collector is online so matching engine finds them immediately
