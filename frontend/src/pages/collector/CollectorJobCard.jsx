@@ -120,6 +120,10 @@ export const CollectorJobCard = () => {
       if (data?.pickup) {
         setPickup(data.pickup);
         setMode(data.pickup.pricingMode || 'separate');
+        if (data.pickup.confirmationOtp) {
+          setGeneratedOtp(String(data.pickup.confirmationOtp));
+          setInputOtp((prev) => prev || String(data.pickup.confirmationOtp));
+        }
         if (data.pickup.separateRequest?.requested && data.pickup.separateRequest?.status === 'pending') {
           setIncomingSeparateRequest(true);
         }
@@ -250,11 +254,17 @@ export const CollectorJobCard = () => {
         items: itemsPayload,
       });
 
-      const updatedPickup = res?.data?.pickup;
+      const payloadData = res?.data?.data || res?.data;
+      const updatedPickup = payloadData?.pickup;
+      const otpFromPush = payloadData?.otp || payloadData?.confirmationOtp || updatedPickup?.confirmationOtp;
       if (updatedPickup) {
         setPickup(updatedPickup);
       }
-      alert('Weights submitted! Bill pushed to customer in real-time.');
+      if (otpFromPush) {
+        setGeneratedOtp(String(otpFromPush));
+        setInputOtp(String(otpFromPush));
+      }
+      alert('Weights submitted! Bill & confirmation OTP pushed to customer in real-time.');
     } catch (err) {
       alert(err.message || 'Failed to submit weights');
     } finally {
@@ -655,70 +665,77 @@ export const CollectorJobCard = () => {
         </div>
       )}
 
-      {/* Step 3: Trigger Customer Confirmation OTP */}
+      {/* Step 3: Customer Confirmation OTP (Immediate verification - no send click required) */}
       {pickup.status === 'weighed' && (
-        <div className="bg-amber-50 border border-amber-300 rounded-3xl p-4 shadow-xs space-y-3">
-          <div className="flex items-center gap-2">
-            <Lock className="w-5 h-5 text-amber-700 shrink-0" />
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-3xl p-4 shadow-xs space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
+              <Lock className="w-4 h-4 text-amber-800" />
+            </div>
             <div>
               <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider">
                 Customer Confirmation
               </h4>
               <p className="text-2xs text-amber-800 mt-0.5">
-                Send 6-digit confirmation OTP to customer's phone to verify and lock the bill amount.
+                The 6-digit confirmation OTP was automatically dispatched to the customer's phone and live tracking screen.
               </p>
             </div>
           </div>
 
-          {!generatedOtp ? (
-            <div className="space-y-2">
-              <button
-                onClick={handleRequestConfirmationOtp}
-                disabled={actionLoading}
-                className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-3.5 px-4 rounded-xl text-xs cursor-pointer shadow-xs transition-all flex items-center justify-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                {actionLoading ? 'Sending...' : 'Send 6-Digit OTP to Customer'}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
+          <div className="space-y-3">
+            {/* If confirmation OTP is pre-loaded or generated, offer 1-click verify */}
+            {(generatedOtp || pickup.confirmationOtp) ? (
               <div className="p-3 bg-white border border-amber-300 rounded-2xl flex items-center justify-between shadow-2xs">
                 <div>
-                  <span className="text-2xs font-bold text-amber-800 uppercase tracking-wider block">🔑 Generated OTP Code:</span>
-                  <span className="font-mono text-lg font-black text-amber-950 tracking-widest">{generatedOtp}</span>
+                  <span className="text-2xs font-bold text-amber-800 uppercase tracking-wider block">🔑 Confirmation OTP:</span>
+                  <span className="font-mono text-lg font-black text-amber-950 tracking-widest">
+                    {generatedOtp || pickup.confirmationOtp}
+                  </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleVerifyCustomerOtp(generatedOtp)}
+                  onClick={() => handleVerifyCustomerOtp(generatedOtp || pickup.confirmationOtp)}
                   disabled={actionLoading}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs cursor-pointer shadow-md flex items-center gap-1.5 transition-all"
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs cursor-pointer shadow-md flex items-center gap-1.5 transition-all active:scale-95"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Verify & Proceed to Pay
+                  <span>Verify & Proceed to Pay</span>
                 </button>
               </div>
+            ) : null}
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  maxLength={6}
-                  placeholder="Or enter customer OTP"
-                  value={inputOtp}
-                  onChange={(e) => setInputOtp(e.target.value.replace(/\D/g, ''))}
-                  className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-center font-mono font-bold text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleVerifyCustomerOtp()}
-                  disabled={actionLoading}
-                  className="px-4 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
-                >
-                  Confirm
-                </button>
-              </div>
+            {/* Manual entry for customer's OTP code */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                maxLength={6}
+                placeholder="Enter customer's 6-digit OTP"
+                value={inputOtp}
+                onChange={(e) => setInputOtp(e.target.value.replace(/\D/g, ''))}
+                className="flex-1 px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-center font-mono font-bold text-xs focus:ring-2 focus:ring-amber-500"
+              />
+              <button
+                type="button"
+                onClick={() => handleVerifyCustomerOtp()}
+                disabled={actionLoading || !inputOtp}
+                className="px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs active:scale-95 transition-all"
+              >
+                Confirm OTP
+              </button>
             </div>
-          )}
+
+            <div className="pt-1 flex items-center justify-between text-2xs text-slate-500">
+              <span>Customer already has the OTP on their tracking screen.</span>
+              <button
+                type="button"
+                onClick={handleRequestConfirmationOtp}
+                disabled={actionLoading}
+                className="text-amber-700 hover:text-amber-900 font-bold underline cursor-pointer text-2xs"
+              >
+                {actionLoading ? 'Resending...' : 'Resend OTP to Customer'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

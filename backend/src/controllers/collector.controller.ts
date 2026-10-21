@@ -263,6 +263,8 @@ export const recordWeights = asyncHandler(async (req: Request, res: Response) =>
     data: {
       pickup: result.pickup,
       items: result.items,
+      otp: result.otp,
+      confirmationOtp: result.otp,
     },
   });
 });

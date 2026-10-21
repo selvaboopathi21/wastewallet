@@ -247,6 +247,8 @@ exports.recordWeights = (0, asyncHandler_1.default)(async (req, res) => {
         data: {
             pickup: result.pickup,
             items: result.items,
+            otp: result.otp,
+            confirmationOtp: result.otp,
         },
     });
 });
